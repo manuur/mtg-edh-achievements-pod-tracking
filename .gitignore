@@ -31,3 +31,6 @@ Thumbs.db
 backups/
 *.dump
 *.dump.gz
+
+.vercel
+.env*

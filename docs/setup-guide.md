@@ -12,7 +12,7 @@ Create two Neon resources from the same Vercel project. Do not connect the produ
 |---|---|---|---|
 | `feature/*` | Preview | Development Neon | Isolated Neon preview branch |
 | `develop` | Persistent Preview | Development Neon | Isolated long-lived preview branch |
-| `main` | Production | Production Neon | Production database only |
+| `master` | Production | Production Neon | Production database only |
 | Local machine | Vercel Development variables | Development Neon | Development resource's base branch |
 
 This gives you development and production separation on Vercel Hobby without paying for Vercel Custom Environments. Preview databases originate from the development resource, never from real production data.
@@ -72,17 +72,17 @@ git add .
 git diff --cached -- .env.local
 ```
 
-The second command must print nothing. Then push `main` and `develop`:
+The second command must print nothing. Then push `master` and `develop`:
 
 ```powershell
 git commit -m "Build initial EDH Pod Tracker"
-git branch -M main
-git push -u origin main
+git branch -M master
+git push -u origin master
 git switch -c develop
 git push -u origin develop
 ```
 
-If GitHub created its own README/license and rejects the first push, do not force-push. Run `git pull --rebase origin main`, resolve any real overlap, rerun `corepack pnpm check`, and push normally.
+If GitHub created its own README/license and rejects the first push, do not force-push. Run `git pull --rebase origin master`, resolve any real overlap, rerun `corepack pnpm check`, and push normally.
 
 ## 4. Create the Vercel project before Neon
 
@@ -97,7 +97,7 @@ If GitHub created its own README/license and rejects the first push, do not forc
 
 The first build succeeds without infrastructure. It is only a bootstrap deployment for creating the Vercel project and obtaining its URL.
 
-In **Project Settings > Environments > Production > Branch Tracking**, confirm `main` is Production. If `develop` was not deployed automatically, go to **Deployments > Create Deployment** and select it.
+In **Project Settings > Environments > Production > Branch Tracking**, confirm `master` is Production. If `develop` was not deployed automatically, go to **Deployments > Create Deployment** and select it.
 
 Record the Production URL and the stable `develop` branch URL shown by Vercel.
 
@@ -254,7 +254,7 @@ In GitHub **Settings > Environments**, create:
 
 Copy the development resource's Development-scoped `DATABASE_URL_UNPOOLED` into the `development` Environment secret `DATABASE_MIGRATION_URL`. Copy the production resource's Production-scoped value into the same secret name in the `production` Environment. Add required-reviewer protection to Production if available.
 
-Wait for **CI / verify** to pass. Then create GitHub Rulesets for `main` and `develop`:
+Wait for **CI / verify** to pass. Then create GitHub Rulesets for `master` and `develop`:
 
 1. Require pull requests.
 2. Require status check `verify`.
@@ -299,11 +299,11 @@ For an initial private beta, Testing mode works with listed test users, but auth
 
 Run GitHub **Actions > Apply database migrations > Run workflow**:
 
-1. Workflow branch: `main` for the first release.
+1. Workflow branch: `master` for the first release.
 2. Target: `production`.
 3. Wait for migration and verification.
 
-Set the Production Data API to expose only `api`, then redeploy `main` in Vercel.
+Set the Production Data API to expose only `api`, then redeploy `master` in Vercel.
 
 Smoke test:
 
@@ -335,7 +335,7 @@ Then:
 2. Vercel creates a Preview and an isolated development Neon branch.
 3. Preview build automatically migrates that branch.
 4. Merge and test stable `develop`.
-5. PR `develop` -> `main`.
+5. PR `develop` -> `master`.
 6. Code-only changes can merge after CI/testing.
 7. Schema changes use the following order.
 
@@ -347,9 +347,9 @@ Never use `drizzle-kit push` on shared or Production databases.
 2. Run `corepack pnpm db:generate` when appropriate.
 3. Review the SQL and test locally/through Preview.
 4. Merge it to `develop` and test.
-5. Before merging to `main`, run **Apply database migrations** from the `develop` workflow branch with target `production`.
+5. Before merging to `master`, run **Apply database migrations** from the `develop` workflow branch with target `production`.
 6. Only backward-compatible expand migrations may run before code deployment.
-7. After verification, merge `develop` to `main`.
+7. After verification, merge `develop` to `master`.
 8. Destructive contract migrations belong in a later release.
 
 ## 15. Configure encrypted R2 backups
