@@ -1,0 +1,6 @@
+import { Button, inputClass } from "@/components/ui";
+import type { MetricRangeQuery } from "@/lib/metric-range";
+
+export function MetricRangeControls({ query, preserve = {} }: { query: MetricRangeQuery; preserve?: Record<string, string | undefined> }) {
+  return <form className="flex flex-wrap items-end gap-2 rounded-2xl border border-white/8 bg-white/3 p-3">{Object.entries(preserve).map(([name, value]) => value ? <input key={name} type="hidden" name={name} value={value} /> : null)}<label className="grid gap-1 text-[10px] font-bold tracking-[.12em] text-stone-500 uppercase"><span>Range</span><select name="range" defaultValue={query.range ?? "all"} className={`${inputClass} h-9 w-32`}><option value="all">All time</option><option value="30d">30 days</option><option value="90d">90 days</option><option value="custom">Custom</option></select></label><label className="grid gap-1 text-[10px] font-bold tracking-[.12em] text-stone-500 uppercase"><span>From</span><input name="from" type="date" defaultValue={query.from} className={`${inputClass} h-9 w-36`} /></label><label className="grid gap-1 text-[10px] font-bold tracking-[.12em] text-stone-500 uppercase"><span>To</span><input name="to" type="date" defaultValue={query.to} className={`${inputClass} h-9 w-36`} /></label><Button className="h-9" variant="secondary">Apply</Button></form>;
+}

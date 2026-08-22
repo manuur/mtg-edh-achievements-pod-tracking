@@ -1,0 +1,42 @@
+name: Bootstrap application Superuser
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: GitHub Environment containing the target database
+        required: true
+        type: choice
+        options:
+          - development
+          - production
+      email:
+        description: Exact verified Google email that has already signed in
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.target }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_MIGRATION_URL }}
+      SUPERUSER_EMAIL: ${{ inputs.email }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Assign the singleton Superuser
+        shell: bash
+        run: pnpm db:bootstrap-superuser -- "$SUPERUSER_EMAIL"

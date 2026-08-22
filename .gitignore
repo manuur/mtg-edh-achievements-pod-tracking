@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+.pnp/
+
+# Next.js
+.next/
+out/
+
+# tests
+coverage/
+test-results/
+playwright-report/
+
+# local configuration
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# build and tooling
+*.tsbuildinfo
+.vercel/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# backup output
+backups/
+*.dump
+*.dump.gz

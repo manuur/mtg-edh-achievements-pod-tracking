@@ -1,0 +1,3 @@
+code,name,description,category,display_order
+first-blood,First Blood,Be the first player to eliminate an opponent,Combat,10
+table-savior,Table Savior,Stop an effect that would immediately end the game,Interaction,20
