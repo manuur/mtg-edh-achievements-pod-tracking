@@ -12,7 +12,7 @@ export function getNeonAuth() {
   if (!isAuthConfigured()) return (neonAuth = null);
   const env = getServerEnv();
   return (neonAuth = createNeonAuth({
-    baseUrl: env.NEON_AUTH_BASE_URL!,
+    baseUrl: env.DATABASE_NEON_AUTH_BASE_URL!,
     cookies: { secret: env.NEON_AUTH_COOKIE_SECRET!, sessionDataTtl: 300 },
   }));
 }

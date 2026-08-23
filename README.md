@@ -16,7 +16,7 @@ A private, role-aware Commander/EDH playgroup tracker for POD memberships, decks
 1. Install Node.js 22+ and enable Corepack: `corepack enable`.
 2. Install dependencies: `pnpm install`.
 3. Copy `.env.example` to `.env.local` and provide a pooled Neon `DATABASE_URL` plus a direct `DATABASE_MIGRATION_URL`.
-4. Enable Neon Auth, Google OAuth, and the authenticated Data API in the Neon Console. Set `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, and `NEON_DATA_API_URL`.
+4. Enable Neon Auth, Google OAuth, and the authenticated Data API in the Neon Console. Set `DATABASE_NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, and `NEON_DATA_API_URL`.
 5. Apply the schema with `pnpm db:migrate`.
 6. Start the application with `pnpm dev`.
 

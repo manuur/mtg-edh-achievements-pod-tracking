@@ -135,7 +135,7 @@ The CLI can also start this flow with `vercel integration add neon`, but the das
 7. Leave **Preview** and **Development** unchecked.
 8. Do not enable preview branches for this resource.
 
-The integration should add `DATABASE_URL` as a pooled runtime URL and can add `DATABASE_URL_UNPOOLED` as the direct operator URL. If the unpooled variable is missing, enable it in the resource's integration/environment-variable settings. Auth also injects `NEON_AUTH_BASE_URL`.
+The integration should add `DATABASE_URL` as a pooled runtime URL and can add `DATABASE_URL_UNPOOLED` as the direct operator URL. If the unpooled variable is missing, enable it in the resource's integration/environment-variable settings. Auth also injects `DATABASE_NEON_AUTH_BASE_URL`.
 
 ### Development and Preview Neon resource
 
@@ -172,7 +172,7 @@ Inspect Vercel **Settings > Environment Variables**. Confirm the integration has
 
 - `DATABASE_URL`
 - `DATABASE_URL_UNPOOLED`
-- `NEON_AUTH_BASE_URL`
+- `DATABASE_NEON_AUTH_BASE_URL`
 - `NEON_DATA_API_URL` when the service supplies it
 
 The Data API value ends in `/rest/v1`. If it is not injected, copy it from the linked Neon dashboard and add it to the correct scope. Never replace a deployment-specific Preview value with a fixed Production value.
@@ -197,7 +197,7 @@ Save them in a password manager. Add these under Vercel **Settings > Environment
 | `DEV_USER_EMAIL` | Do not add | Do not add | `local-owner@example.com` |
 | `DEV_USER_NAME` | Do not add | Do not add | `Local Owner` |
 
-Mark cookie secrets sensitive. Keep each stable within its environment. Do not overwrite integration-managed Preview variables such as `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, or `NEON_AUTH_BASE_URL` because they change for isolated branches.
+Mark cookie secrets sensitive. Keep each stable within its environment. Do not overwrite integration-managed Preview variables such as `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, or `DATABASE_NEON_AUTH_BASE_URL` because they change for isolated branches.
 
 ## 9. Pull the Development environment locally
 
@@ -211,7 +211,7 @@ Confirm it contains these values, adding application-owned lines if Vercel did n
 ```dotenv
 DATABASE_URL=<DEVELOPMENT_POOLED_URL_FROM_VERCEL>
 DATABASE_URL_UNPOOLED=<DEVELOPMENT_DIRECT_URL_FROM_VERCEL>
-NEON_AUTH_BASE_URL=<DEVELOPMENT_AUTH_URL_FROM_VERCEL>
+DATABASE_NEON_AUTH_BASE_URL=<DEVELOPMENT_AUTH_URL_FROM_VERCEL>
 NEON_DATA_API_URL=<DEVELOPMENT_DATA_API_URL_ENDING_/rest/v1>
 NEON_AUTH_COOKIE_SECRET=<DEVELOPMENT_COOKIE_SECRET>
 DEV_AUTH_BYPASS=true
@@ -380,7 +380,7 @@ For a restore drill, create a disposable branch in the production Neon resource,
 |---|---:|---:|---:|---:|---:|
 | `DATABASE_URL` pooled | Integration-managed/scoped | Pulled from Development | No | Source | No |
 | `DATABASE_URL_UNPOOLED` | Integration-managed/scoped | Pulled from Development | Protected migration/backup secret | Source | No |
-| `NEON_AUTH_BASE_URL` | Integration-managed/scoped | Pulled from Development | No | Source | No |
+| `DATABASE_NEON_AUTH_BASE_URL` | Integration-managed/scoped | Pulled from Development | No | Source | No |
 | `NEON_DATA_API_URL` | Integration-managed when available | Pulled from Development | No | Source | No |
 | Cookie secret | Manually scoped | Development value | No | No | No |
 | Google client ID/secret | No | No | No | OAuth provider config | Source |

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const serverSchema = z.object({
   DATABASE_URL: z.string().url().optional(),
-  NEON_AUTH_BASE_URL: z.string().url().optional(),
+  DATABASE_NEON_AUTH_BASE_URL: z.string().url().optional(),
   NEON_AUTH_COOKIE_SECRET: z.string().min(32).optional(),
   NEON_DATA_API_URL: z.string().url().optional(),
   DEV_AUTH_BYPASS: z.enum(["true", "false"]).default("false"),
@@ -23,7 +23,7 @@ export function getServerEnv(): ServerEnv {
 
 export function isAuthConfigured() {
   const env = getServerEnv();
-  return Boolean(env.NEON_AUTH_BASE_URL && env.NEON_AUTH_COOKIE_SECRET);
+  return Boolean(env.DATABASE_NEON_AUTH_BASE_URL && env.NEON_AUTH_COOKIE_SECRET);
 }
 
 export function isDataApiConfigured() {
