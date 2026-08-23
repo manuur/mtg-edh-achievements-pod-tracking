@@ -1,4 +1,4 @@
-import { loadEnvConfig } from "@next/env";
+import { loadEnvConfig } from "./load-environment";
 import { eq } from "drizzle-orm";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";

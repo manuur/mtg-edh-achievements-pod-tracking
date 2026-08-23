@@ -1,4 +1,4 @@
-import { loadEnvConfig } from "@next/env";
+import { loadEnvConfig } from "./load-environment";
 import { neon } from "@neondatabase/serverless";
 
 loadEnvConfig(process.cwd());

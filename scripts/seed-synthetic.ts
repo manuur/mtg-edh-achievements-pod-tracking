@@ -1,4 +1,4 @@
-import { loadEnvConfig } from "@next/env";
+import { loadEnvConfig } from "./load-environment";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { decks, gameParticipants, games, players, podMemberships, pods } from "../src/db/schema";
