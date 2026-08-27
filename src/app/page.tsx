@@ -1,8 +1,14 @@
 import { ArrowRight, BarChart3, ShieldCheck, Swords } from "lucide-react";
+import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { BrandMark } from "@/components/brand-mark";
 import { Card, LinkButton } from "@/components/ui";
+import { getAuthUser } from "@/lib/auth/server";
 
-export default function HomePage() {
+export default async function HomePage() {
+  await connection();
+  if (await getAuthUser()) redirect("/dashboard");
+
   return <main className="mx-auto flex min-h-screen max-w-7xl flex-col px-5 py-6 sm:px-8 lg:px-12">
     <nav className="flex items-center justify-between"><div className="flex items-center gap-3"><BrandMark className="size-11" /><div><p className="font-display text-lg font-semibold">EDH Pod Tracker</p><p className="text-[10px] tracking-[.18em] text-stone-500 uppercase">Playgroup ledger</p></div></div><LinkButton href="/login" variant="secondary">Sign in</LinkButton></nav>
     <section className="grid flex-1 items-center gap-12 py-16 lg:grid-cols-[1.05fr_.95fr] lg:py-24">

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { BookOpen, ChevronDown, LayoutDashboard, LogOut, Plus, Shield, UserCog, UserRound, Users } from "lucide-react";
+import { BookOpen, ChevronDown, LayoutDashboard, Plus, Shield, UserCog, UserRound, Users } from "lucide-react";
 import { cn, initials } from "@/lib/utils";
 import type { UserContext } from "@/lib/auth/server";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { BrandMark } from "@/components/brand-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -53,7 +54,7 @@ export function AppNav({ context, pods }: { context: UserContext; pods: SidebarP
       </div>
       <div className="mt-5 grid gap-3"><ThemeToggle initialPreference={context.player.themePreference} initialVersion={context.player.version} /><div className="rounded-2xl border border-white/8 bg-white/4 p-3">
         <Link href="/settings/profile" className="flex items-center gap-3 rounded-lg hover:bg-white/5"><span className="grid size-9 place-items-center rounded-full bg-violet-400/15 text-xs font-bold text-violet-200">{initials(context.player.displayName)}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-white">{context.player.displayName}</p><p className="truncate text-xs text-stone-500">Profile settings</p></div></Link>
-        <form action="/api/auth/sign-out" method="post" className="mt-3"><button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs text-stone-500 hover:bg-white/6 hover:text-white"><LogOut className="size-3.5" />Sign out</button></form>
+        <SignOutButton />
       </div></div>
     </aside>
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/8 bg-[var(--nav-background)] px-5 backdrop-blur lg:hidden"><Link href="/dashboard" className="flex items-center gap-2 font-display text-lg"><BrandMark className="size-8" />EDH Tracker</Link><div className="flex items-center gap-2"><ThemeToggle initialPreference={context.player.themePreference} initialVersion={context.player.version} variant="icon" /><Link href="/settings/profile" aria-label="Profile settings" className="grid size-9 place-items-center rounded-full bg-violet-400/15 text-xs font-bold text-violet-200">{initials(context.player.displayName)}</Link></div></header>

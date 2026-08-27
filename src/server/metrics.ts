@@ -3,6 +3,7 @@ import { getDb } from "@/db/client";
 import type { UserContext } from "@/lib/auth/server";
 import { requirePodRole } from "@/lib/authorization";
 import { AppError } from "@/lib/errors";
+import type { PodAchievementLeaderboardEntry, PodLeaderboardEntry } from "@/lib/pod-rankings";
 
 export interface MetricRange { from?: string; to?: string }
 
@@ -119,6 +120,45 @@ export async function podMetrics(context: UserContext, podId: string, range: Met
   };
 }
 
+export async function podLeaderboardMetrics(context: UserContext, podId: string, range: MetricRange = {}) {
+  await requirePodRole(context, podId, "GUEST");
+  const condition = dateCondition(range);
+  const db = getDb(context);
+  const [leaders, achievementLeaders] = await Promise.all([
+    db.execute<Omit<PodLeaderboardEntry, "participation_share">>(sql`
+      select p.id as player_id, p.display_name,
+        count(*)::int as games,
+        count(*) filter (where g.winner_player_id = p.id)::int as wins,
+        count(*) filter (where g.result_kind = 'DRAW')::int as draws,
+        coalesce(count(*) filter (where g.winner_player_id = p.id)::numeric / nullif(count(*), 0), 0)::float as win_rate
+      from app.game_participants gp
+      join app.games g on g.id = gp.game_id and g.archived_at is null
+      join app.players p on p.id = gp.player_id
+      where g.pod_id = ${podId}::uuid ${condition}
+      group by p.id, p.display_name
+    `),
+    db.execute<PodAchievementLeaderboardEntry>(sql`
+      select p.id as player_id, p.display_name,
+        count(distinct grant_row.achievement_id) filter (where grant_row.revoked_at is null and achievement.id is not null and g.id is not null)::int as earned,
+        (select count(*)::int from app.achievements a where a.archived_at is null) as available,
+        coalesce(count(distinct grant_row.achievement_id) filter (where grant_row.revoked_at is null and achievement.id is not null and g.id is not null)::numeric
+          / nullif((select count(*) from app.achievements a where a.archived_at is null), 0), 0)::float as completion
+      from app.pod_memberships membership
+      join app.players p on p.id = membership.player_id
+      left join app.pod_player_achievements grant_row on grant_row.pod_id = membership.pod_id and grant_row.player_id = membership.player_id
+      left join app.achievements achievement on achievement.id = grant_row.achievement_id and achievement.archived_at is null
+      left join app.games g on g.id = grant_row.game_id and g.archived_at is null ${condition}
+      where membership.pod_id = ${podId}::uuid and membership.status = 'ACTIVE' and membership.archived_at is null
+      group by p.id, p.display_name
+    `),
+  ]);
+
+  return {
+    leaders: leaders.rows.map((leader) => ({ ...leader, participation_share: 0 })),
+    achievementLeaders: achievementLeaders.rows,
+  };
+}
+
 export async function playerMetrics(context: UserContext, playerId: string, podId?: string, range: MetricRange = {}) {
   if (playerId !== context.player.id && !podId) throw new AppError(404, "NOT_FOUND", "Player metrics require a shared POD.");
   if (podId) {
@@ -199,6 +239,38 @@ export async function playerMetrics(context: UserContext, playerId: string, podI
   const base = summary.rows[0] ?? { games: 0, wins: 0, draws: 0, losses: 0, win_rate: 0, participation_share: 0, unique_opponents: 0, active_decks: 0 };
   const achievement = achievements.rows[0] ?? { earned: 0, available: 0 };
   return { ...base, recentForm: form.rows, deckPerformance: deckPerformance.rows, brackets: brackets.rows, powers: powers.rows, achievements: { ...achievement, completion: achievement.available ? achievement.earned / achievement.available : 0 } };
+}
+
+export interface OwnedDeckSummary {
+  deck_id: string;
+  games: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  win_rate: number;
+  last_played: string | null;
+  last_played_timezone: string | null;
+}
+
+export async function ownedDeckSummaries(context: UserContext) {
+  const result = await getDb(context).execute<OwnedDeckSummary & Record<string, unknown>>(sql`
+    select deck.id as deck_id,
+      count(game.id)::int as games,
+      count(game.id) filter (where game.winner_player_id = deck.owner_player_id)::int as wins,
+      count(game.id) filter (where game.result_kind = 'DRAW')::int as draws,
+      count(game.id) filter (where game.result_kind = 'WIN' and game.winner_player_id <> deck.owner_player_id)::int as losses,
+      coalesce(count(game.id) filter (where game.winner_player_id = deck.owner_player_id)::numeric
+        / nullif(count(game.id), 0), 0)::float as win_rate,
+      max(game.played_at)::text as last_played,
+      (array_agg(pod.timezone order by game.played_at desc) filter (where game.id is not null))[1] as last_played_timezone
+    from app.decks deck
+    left join app.game_participants participant on participant.deck_id = deck.id
+    left join app.games game on game.id = participant.game_id and game.archived_at is null
+    left join app.pods pod on pod.id = game.pod_id
+    where deck.owner_player_id = ${context.player.id}::uuid
+    group by deck.id, deck.owner_player_id
+  `);
+  return result.rows;
 }
 
 export async function deckMetrics(context: UserContext, deckId: string, podId?: string, range: MetricRange = {}) {

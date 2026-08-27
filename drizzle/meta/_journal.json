@@ -50,6 +50,13 @@
       "when": 1787878800000,
       "tag": "0006_persisted_theme_preference",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787882400000,
+      "tag": "0007_clear_placeholder_power_levels",
+      "breakpoints": true
     }
   ]
 }

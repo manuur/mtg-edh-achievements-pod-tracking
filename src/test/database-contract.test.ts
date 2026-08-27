@@ -8,6 +8,7 @@ const superadminHardDelete = readFileSync(resolve(process.cwd(), "drizzle/0003_s
 const achievementGameEvidence = readFileSync(resolve(process.cwd(), "drizzle/0004_achievement_game_evidence.sql"), "utf8");
 const optionalDeckPowerLevel = readFileSync(resolve(process.cwd(), "drizzle/0005_optional_deck_power_level.sql"), "utf8");
 const persistedThemePreference = readFileSync(resolve(process.cwd(), "drizzle/0006_persisted_theme_preference.sql"), "utf8");
+const placeholderPowerCleanup = readFileSync(resolve(process.cwd(), "drizzle/0007_clear_placeholder_power_levels.sql"), "utf8");
 
 describe("database authorization contract", () => {
   it("enables RLS on every exposed domain table", () => {
@@ -91,5 +92,12 @@ describe("database authorization contract", () => {
   it("persists a system, light, or dark preference on each player profile", () => {
     expect(persistedThemePreference).toContain("CREATE TYPE app.theme_preference AS ENUM ('SYSTEM', 'LIGHT', 'DARK')");
     expect(persistedThemePreference).toContain("theme_preference app.theme_preference NOT NULL DEFAULT 'SYSTEM'");
+  });
+
+  it("clears placeholder 5.0 power levels from current decks and historical snapshots", () => {
+    expect(placeholderPowerCleanup).toContain("UPDATE app.decks");
+    expect(placeholderPowerCleanup).toContain("WHERE power_level = 5.00");
+    expect(placeholderPowerCleanup).toContain("UPDATE app.game_participants");
+    expect(placeholderPowerCleanup).toContain("WHERE power_level_snapshot = 5.00");
   });
 });

@@ -32,8 +32,10 @@ type EligibleGame = {
   id: string;
   playedAt: Date | string;
   resultKind: "WIN" | "DRAW";
+  winnerPlayerId: string | null;
   winnerName: string | null;
   winnerDeckName: string | null;
+  playerDeckName: string;
   participantCount: number;
   notes: string;
 };
@@ -111,16 +113,19 @@ export function AchievementMatrix({
     const result = game.resultKind === "DRAW"
       ? "Draw"
       : `Winner: ${winner}${game.winnerDeckName ? ` (${game.winnerDeckName})` : ""}`;
-    return `${date} · ${result} · ${game.participantCount} players${game.notes ? ` · ${game.notes}` : ""}`;
+    const recipientDeck = targetPlayer && game.winnerPlayerId !== grantTarget?.playerId
+      ? ` · ${targetPlayer.displayName}: ${game.playerDeckName}`
+      : "";
+    return `${date} · ${result}${recipientDeck} · ${game.participantCount} players${game.notes ? ` · ${game.notes}` : ""}`;
   }
 
-  function winnerDeckNote(game?: EligibleGame) {
-    return game?.resultKind === "WIN" ? game.winnerDeckName ?? "" : "";
+  function playerDeckNote(game?: EligibleGame) {
+    return game?.playerDeckName ?? "";
   }
 
   function selectEligibleGame(gameId: string) {
     setSelectedGameId(gameId);
-    setNote(winnerDeckNote(eligibleGames.find((game) => game.id === gameId)));
+    setNote(playerDeckNote(eligibleGames.find((game) => game.id === gameId)));
   }
 
   function selectPlayer(value: string) {
@@ -151,7 +156,7 @@ export function AchievementMatrix({
       setNextGameCursor(page.nextCursor);
       if (!append) {
         setSelectedGameId(page.items[0]?.id ?? "");
-        setNote(winnerDeckNote(page.items[0]));
+        setNote(playerDeckNote(page.items[0]));
       }
     } catch (cause) {
       setError(cause instanceof ApiClientError ? cause.message : "Eligible games could not be loaded.");
