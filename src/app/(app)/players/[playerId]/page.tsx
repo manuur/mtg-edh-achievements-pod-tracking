@@ -3,9 +3,10 @@ import { Badge, Card, PageHeader } from "@/components/ui";
 import { MetricRangeControls } from "@/components/metric-range-controls";
 import { requireUserContext } from "@/lib/auth/server";
 import { resolveMetricRange, type MetricRangeQuery } from "@/lib/metric-range";
+import { getPodPlayerRanks } from "@/lib/pod-rankings";
 import { formatPercent } from "@/lib/utils";
 import { listDecks } from "@/server/decks";
-import { playerMetrics } from "@/server/metrics";
+import { playerMetrics, podLeaderboardMetrics } from "@/server/metrics";
 import { getSharedPlayer } from "@/server/profile";
 
 interface PlayerQuery extends MetricRangeQuery { podId?: string }
@@ -18,12 +19,14 @@ export default async function PlayerPage({ params, searchParams }: {
   const query = await searchParams;
   const range = resolveMetricRange(query);
   const context = await requireUserContext();
-  const [player, metrics, decks] = await Promise.all([
+  const [player, metrics, decks, leaderboard] = await Promise.all([
     getSharedPlayer(context, playerId, query.podId),
     playerMetrics(context, playerId, query.podId, range.values),
     listDecks(context, playerId, query.podId),
+    query.podId ? podLeaderboardMetrics(context, query.podId, range.values) : Promise.resolve(null),
   ]);
   const rankedDecks = [...metrics.deckPerformance].filter((deck) => deck.games >= 3).sort((a, b) => b.win_rate - a.win_rate || b.games - a.games);
+  const ranks = leaderboard ? getPodPlayerRanks(leaderboard.leaders, leaderboard.achievementLeaders, playerId) : null;
 
   return <div className="grid gap-6">
     <PageHeader
@@ -32,6 +35,12 @@ export default async function PlayerPage({ params, searchParams }: {
       description={query.podId ? "Metrics are limited to the shared POD." : "Private totals across all of your PODs."}
       action={<MetricRangeControls query={{ ...query, range: range.key }} preserve={{ podId: query.podId }} />}
     />
+    {ranks && <section aria-label="POD leaderboard ranks" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <RankMetric label="Most played" rank={ranks.played} total={ranks.totals.played} />
+      <RankMetric label="Most wins" rank={ranks.wins} total={ranks.totals.wins} />
+      <RankMetric label="Most effective" rank={ranks.effective} total={ranks.totals.effective} unavailable="Needs at least 3 games" />
+      <RankMetric label="Achievements" rank={ranks.achievements} total={ranks.totals.achievements} />
+    </section>}
     <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <Metric label="Games" value={metrics.games} /><Metric label="Wins" value={metrics.wins} />
       <Metric label="Draws" value={metrics.draws} /><Metric label="Losses" value={metrics.losses} />
@@ -76,6 +85,10 @@ function Eyebrow({ children, tone }: { children: React.ReactNode; tone: "amber" 
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return <Card className="p-4"><p className="font-display text-3xl">{value}</p><p className="mt-1 text-xs text-stone-500">{label}</p></Card>;
+}
+
+function RankMetric({ label, rank, total, unavailable = "Not ranked in this range" }: { label: string; rank: number | null; total: number; unavailable?: string }) {
+  return <Card className="border-violet-300/12 p-4"><p className="text-[10px] font-bold tracking-[.14em] text-violet-300 uppercase">POD rank</p><p className="font-display mt-1 text-3xl">{rank ? `#${rank}` : "—"}</p><p className="mt-1 text-xs text-stone-500">{label} · {rank ? `of ${total}` : unavailable}</p></Card>;
 }
 
 function sumAppearances(rows: { appearances: number }[]) {

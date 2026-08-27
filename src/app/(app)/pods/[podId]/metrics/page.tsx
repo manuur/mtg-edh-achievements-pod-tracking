@@ -59,7 +59,7 @@ export default async function PodMetricsPage({ params, searchParams }: {
         <Eyebrow tone="emerald">Achievements</Eyebrow>
         <h2 className="font-display mt-1 mb-5 text-2xl">Completion leaders</h2>
         <div className="grid gap-3">{metrics.achievementLeaders.map((player) => <div key={player.player_id}>
-          <div className="mb-1 flex items-center justify-between text-sm"><span className="font-semibold">{player.display_name}</span><span className="text-stone-400">{player.earned}/{player.available}</span></div>
+          <div className="mb-1 flex items-center justify-between text-sm"><Link href={`/players/${player.player_id}?podId=${podId}`} className="font-semibold hover:text-amber-200">{player.display_name}</Link><span className="text-stone-400">{player.earned}/{player.available}</span></div>
           <div className="h-2 overflow-hidden rounded-full bg-white/6"><div className="h-full rounded-full bg-emerald-300/70" style={{ width: `${Math.min(100, player.completion * 100)}%` }} /></div>
         </div>)}</div>
       </Card>

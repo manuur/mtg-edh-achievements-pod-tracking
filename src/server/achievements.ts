@@ -159,8 +159,10 @@ export interface AchievementGameSummary {
   id: string;
   playedAt: Date;
   resultKind: "WIN" | "DRAW";
+  winnerPlayerId: string | null;
   winnerName: string | null;
   winnerDeckName: string | null;
+  playerDeckName: string;
   participantCount: number;
   notes: string;
 }
@@ -199,6 +201,7 @@ export async function listAchievementGames(
     id: games.id,
     playedAt: games.playedAt,
     resultKind: games.resultKind,
+    winnerPlayerId: games.winnerPlayerId,
     winnerName: sql<string | null>`(
       select winner.display_name from app.players winner where winner.id = ${games.winnerPlayerId}
     )`,
@@ -208,6 +211,7 @@ export async function listAchievementGames(
       where winner_participant.game_id = ${games.id}
         and winner_participant.player_id = ${games.winnerPlayerId}
     )`,
+    playerDeckName: gameParticipants.deckNameSnapshot,
     participantCount: sql<number>`(
       select count(*)::integer from app.game_participants participant_count where participant_count.game_id = ${games.id}
     )`,

@@ -74,23 +74,46 @@ describe("achievement matrix", () => {
     expect(document.getElementById(`member-achievements-${secondMember.id}`)).toBeVisible();
   });
 
-  it("requires a participating game and submits its id with the grant", async () => {
+  it("defaults the note to the recipient's deck from the selected game", async () => {
     const game = {
       id: "40000000-0000-4000-8000-000000000001",
       playedAt: "2026-08-20T20:00:00.000Z",
       resultKind: "WIN" as const,
-      winnerName: "Mara",
-      winnerDeckName: "Alela, Artful Provocateur",
+      winnerPlayerId: "20000000-0000-4000-8000-000000000002",
+      winnerName: "Nico",
+      winnerDeckName: "Atraxa, Praetors' Voice",
+      playerDeckName: "Alela, Artful Provocateur",
       participantCount: 4,
       notes: "Friday game",
     };
-    apiRequest.mockResolvedValueOnce({ items: [game], nextCursor: null }).mockResolvedValueOnce({});
+    const recipientWonGame = {
+      ...game,
+      id: "40000000-0000-4000-8000-000000000002",
+      playedAt: "2026-08-21T20:00:00.000Z",
+      winnerPlayerId: members[0].id,
+      winnerName: "Mara",
+      winnerDeckName: "Alela, Artful Provocateur",
+      notes: "Saturday game",
+    };
+    const drawGame = {
+      ...game,
+      id: "40000000-0000-4000-8000-000000000003",
+      playedAt: "2026-08-22T20:00:00.000Z",
+      resultKind: "DRAW" as const,
+      winnerPlayerId: null,
+      winnerName: null,
+      winnerDeckName: null,
+      notes: "Sunday game",
+    };
+    apiRequest.mockResolvedValueOnce({ items: [game, recipientWonGame, drawGame], nextCursor: null }).mockResolvedValueOnce({});
     render(<AchievementMatrix podId="30000000-0000-4000-8000-000000000001" timeZone="UTC" catalog={catalog} members={members} grants={[]} canEdit />);
 
     await userEvent.click(screen.getAllByRole("button", { name: /Grant First blood for Mara/ })[0]);
     const gameSelect = await screen.findByLabelText("Game where achievement was earned");
     await waitFor(() => expect(gameSelect).toHaveValue(game.id));
-    expect(screen.getByRole("option", { name: /20\/08\/2026, 20:00 · Winner: Mara \(Alela, Artful Provocateur\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /20\/08\/2026, 20:00 · Winner: Nico \(Atraxa, Praetors' Voice\) · Mara: Alela, Artful Provocateur/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /21\/08\/2026, 20:00 · Winner: Mara \(Alela, Artful Provocateur\) · 4 players · Saturday game/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /22\/08\/2026, 20:00 · Draw · Mara: Alela, Artful Provocateur · 4 players · Sunday game/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Optional achievement note")).toHaveValue("Alela, Artful Provocateur");
     await userEvent.click(screen.getByRole("button", { name: "Grant achievement" }));
 
