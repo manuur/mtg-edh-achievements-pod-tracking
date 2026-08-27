@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="EDH Pod Tracker">
+  <rect width="1024" height="1024" rx="220" fill="#0B0A08"/>
+  <g transform="translate(118 112) scale(.77)">
+
+  <g>
+    <path d="M325 430 C240 352 140 350 132 442 C120 557 240 625 366 636" fill="none" stroke="#F6B91A" stroke-width="62" stroke-linecap="round"/>
+    <path d="M699 430 C784 352 884 350 892 442 C904 557 784 625 658 636" fill="none" stroke="#F6B91A" stroke-width="62" stroke-linecap="round"/>
+    <rect x="202" y="112" width="286" height="520" rx="44" transform="rotate(-18 345 372)" fill="#F6B91A"/>
+    <rect x="244" y="158" width="202" height="360" rx="28" transform="rotate(-18 345 338)" fill="#32145F"/>
+    <rect x="536" y="112" width="286" height="520" rx="44" transform="rotate(18 679 372)" fill="#F6B91A"/>
+    <rect x="578" y="158" width="202" height="360" rx="28" transform="rotate(18 679 338)" fill="#32145F"/>
+    <rect x="360" y="60" width="304" height="560" rx="48" fill="#F6B91A"/>
+    <rect x="404" y="108" width="216" height="408" rx="30" fill="#32145F"/>
+    <path d="M180 430 C214 560 315 626 430 650 L430 700 C430 725 452 738 464 750 L464 808 C464 842 442 855 405 864 C360 875 332 894 328 918 L696 918 C692 894 664 875 619 864 C582 855 560 842 560 808 L560 750 C572 738 594 725 594 700 L594 650 C709 626 810 560 844 430 C804 505 706 560 612 580 C576 589 548 600 512 600 C476 600 448 589 412 580 C318 560 220 505 180 430 Z" fill="#F6B91A"/>
+    <rect x="300" y="908" width="424" height="54" rx="27" fill="#F6B91A"/>
+    <path d="M512 258 C520 292 538 310 574 320 C538 330 520 348 512 384 C504 348 486 330 450 320 C486 310 504 292 512 258 Z" fill="#F6B91A"/>
+  </g>
+  </g>
+</svg>

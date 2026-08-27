@@ -30,8 +30,14 @@ export function toAppError(error: unknown): AppError {
   if (error instanceof Error && /unique|duplicate/i.test(error.message)) {
     return new AppError(409, "CONFLICT", "A record with those values already exists.");
   }
-  if (error && typeof error === "object" && "code" in error) {
-    const databaseError = error as { code?: string; message?: string };
+  let databaseCandidate: unknown = error;
+  for (let depth = 0; depth < 3; depth++) {
+    if (!databaseCandidate || typeof databaseCandidate !== "object") break;
+    if ("code" in databaseCandidate && typeof (databaseCandidate as { code?: unknown }).code === "string") break;
+    databaseCandidate = "cause" in databaseCandidate ? (databaseCandidate as { cause?: unknown }).cause : undefined;
+  }
+  if (databaseCandidate && typeof databaseCandidate === "object" && "code" in databaseCandidate) {
+    const databaseError = databaseCandidate as { code?: string; message?: string };
     if (databaseError.code === "42501") return new AppError(403, "FORBIDDEN", "The database denied this action.");
     if (["23514", "22P02", "22023"].includes(databaseError.code ?? "")) {
       return new AppError(422, "VALIDATION_ERROR", databaseError.message ?? "The data is invalid.");

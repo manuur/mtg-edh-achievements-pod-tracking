@@ -1,6 +1,8 @@
 import { ArrowRight, BookOpen, Swords, Trophy, Users } from "lucide-react";
 import Link from "next/link";
+import { GameAchievementBadges } from "@/components/game-achievement-badges";
 import { Card, LinkButton } from "@/components/ui";
+import { PodLeaderboard } from "@/components/pod-leaderboard";
 import { requireUserContext } from "@/lib/auth/server";
 import { formatDate } from "@/lib/utils";
 import { listGames } from "@/server/games";
@@ -27,12 +29,9 @@ export default async function PodOverviewPage({ params }: { params: Promise<{ po
     <section className="grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
       <Card className="p-5">
         <div className="mb-5 flex items-center justify-between"><div><p className="text-xs font-bold tracking-[.16em] text-amber-300 uppercase">Latest results</p><h2 className="font-display mt-1 text-2xl">Recent games</h2></div>{canRecord && <LinkButton href={`/pods/${podId}/games/new`}>Record game</LinkButton>}</div>
-        {gamePage.items.length ? <div className="divide-y divide-white/7">{gamePage.items.map((game) => <Link key={game.id} href={`/pods/${podId}/games/${game.id}`} className="flex items-center justify-between py-3 text-sm hover:text-amber-200"><div><p className="font-medium">{game.resultKind === "DRAW" ? "Table draw" : "Decisive game"}</p><p className="mt-1 text-xs text-stone-500">{formatDate(game.playedAt, pod.timezone)}</p></div><ArrowRight className="size-4" /></Link>)}</div> : <p className="py-10 text-center text-sm text-stone-500">No games recorded yet.</p>}
+        {gamePage.items.length ? <div className="divide-y divide-white/7">{gamePage.items.map((game) => <Link key={game.id} href={`/pods/${podId}/games/${game.id}`} className="group flex items-center gap-4 py-4 text-sm"><span className={`grid size-10 shrink-0 place-items-center rounded-xl font-display text-base ${game.resultKind === "DRAW" ? "bg-white/6 text-stone-300" : "bg-emerald-300/10 text-emerald-200"}`}>{game.resultKind === "DRAW" ? "=" : "W"}</span><div className="min-w-0 flex-1"><p className="truncate font-semibold text-stone-100 transition group-hover:text-amber-200">{game.resultKind === "DRAW" ? "Table draw" : `${game.winnerName ?? "Unknown player"} won${game.winnerDeckName ? ` with ${game.winnerDeckName}` : ""}`}</p><p className="mt-1 text-xs text-stone-500">{formatDate(game.playedAt, pod.timezone)} · {game.participantCount} {game.participantCount === 1 ? "player" : "players"}</p>{game.notes && <p className="mt-1 truncate text-xs text-stone-400">{game.notes}</p>}<GameAchievementBadges achievements={game.achievements} /></div><ArrowRight className="size-4 shrink-0 text-stone-600 transition group-hover:translate-x-0.5 group-hover:text-amber-200" /></Link>)}</div> : <p className="py-10 text-center text-sm text-stone-500">No games recorded yet.</p>}
       </Card>
-      <Card className="p-5">
-        <p className="text-xs font-bold tracking-[.16em] text-violet-300 uppercase">Leaderboard</p><h2 className="font-display mt-1 text-2xl">Current form</h2>
-        <div className="mt-5 grid gap-3">{metrics.leaders.slice(0, 5).map((leader, index) => <div key={leader.player_id} className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-lg bg-white/6 text-xs font-bold text-stone-400">{index + 1}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{leader.display_name}</p><p className="text-xs text-stone-500">{leader.games} games</p></div><span className="font-display text-lg text-amber-200">{leader.wins}</span></div>)}{!metrics.leaders.length && <p className="py-8 text-center text-sm text-stone-500">Play a game to start the board.</p>}</div>
-      </Card>
+      <Card className="p-5"><PodLeaderboard leaders={metrics.leaders} /></Card>
     </section>
   </div>;
 }

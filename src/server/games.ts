@@ -1,12 +1,61 @@
-import { and, asc, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { assertDataApiResult, getAuthenticatedDataApi } from "@/db/data-api";
-import { gameParticipants, games, players } from "@/db/schema";
+import { achievements, gameParticipants, games, players, podPlayerAchievements } from "@/db/schema";
 import type { UserContext } from "@/lib/auth/server";
 import { AppError } from "@/lib/errors";
 import { requirePodRole } from "@/lib/authorization";
 import type { z } from "zod";
 import type { createGameSchema, updateGameSchema } from "@/lib/validation";
+
+export interface GameAchievementBadge {
+  achievementId: string;
+  achievementName: string;
+  achievementDescription: string;
+  category: string;
+  playerId: string;
+  playerName: string;
+  archivedAt: Date | null;
+}
+
+async function listGameAchievementBadges(context: UserContext, podId: string, gameIds: string[]) {
+  const byGameId = new Map<string, GameAchievementBadge[]>();
+  if (!gameIds.length) return byGameId;
+
+  const rows = await getDb(context).select({
+    gameId: podPlayerAchievements.gameId,
+    achievementId: achievements.id,
+    achievementName: achievements.name,
+    achievementDescription: achievements.description,
+    category: achievements.category,
+    playerId: players.id,
+    playerName: players.displayName,
+    archivedAt: achievements.archivedAt,
+  }).from(podPlayerAchievements)
+    .innerJoin(achievements, eq(achievements.id, podPlayerAchievements.achievementId))
+    .innerJoin(players, eq(players.id, podPlayerAchievements.playerId))
+    .where(and(
+      eq(podPlayerAchievements.podId, podId),
+      inArray(podPlayerAchievements.gameId, gameIds),
+      isNull(podPlayerAchievements.revokedAt),
+    ))
+    .orderBy(asc(players.displayName), asc(achievements.category), asc(achievements.displayOrder), asc(achievements.name));
+
+  for (const row of rows) {
+    const badges = byGameId.get(row.gameId) ?? [];
+    badges.push({
+      achievementId: row.achievementId,
+      achievementName: row.achievementName,
+      achievementDescription: row.achievementDescription,
+      category: row.category,
+      playerId: row.playerId,
+      playerName: row.playerName,
+      archivedAt: row.archivedAt,
+    });
+    byGameId.set(row.gameId, badges);
+  }
+  return byGameId;
+}
 
 export async function listGames(context: UserContext, podId: string, options: { limit?: number; cursor?: string; includeArchived?: boolean } = {}) {
   await requirePodRole(context, podId, options.includeArchived ? "ADMIN" : "GUEST");
@@ -21,13 +70,31 @@ export async function listGames(context: UserContext, podId: string, options: { 
   }
   const rows = await getDb(context).select({
     id: games.id, playedAt: games.playedAt, resultKind: games.resultKind, winnerPlayerId: games.winnerPlayerId,
+    winnerName: sql<string | null>`(
+      select winner.display_name from app.players winner where winner.id = ${games.winnerPlayerId}
+    )`,
+    winnerDeckName: sql<string | null>`(
+      select winner_participant.deck_name_snapshot
+      from app.game_participants winner_participant
+      where winner_participant.game_id = ${games.id}
+        and winner_participant.player_id = ${games.winnerPlayerId}
+    )`,
+    participantCount: sql<number>`(
+      select count(*)::integer
+      from app.game_participants participant_count
+      where participant_count.game_id = ${games.id}
+    )`,
     notes: games.notes, version: games.version, archivedAt: games.archivedAt,
   }).from(games).where(and(eq(games.podId, podId), options.includeArchived ? undefined : isNull(games.archivedAt), cursor ? or(lt(games.playedAt, cursor.playedAt), and(eq(games.playedAt, cursor.playedAt), lt(games.id, cursor.id))) : undefined))
     .orderBy(desc(games.playedAt), desc(games.id)).limit(limit + 1);
   const hasMore = rows.length > limit;
   const data = rows.slice(0, limit);
+  const achievementsByGameId = await listGameAchievementBadges(context, podId, data.map((game) => game.id));
   const nextCursor = hasMore ? Buffer.from(JSON.stringify({ playedAt: data[data.length - 1].playedAt.toISOString(), id: data[data.length - 1].id })).toString("base64url") : null;
-  return { items: data, nextCursor };
+  return {
+    items: data.map((game) => ({ ...game, achievements: achievementsByGameId.get(game.id) ?? [] })),
+    nextCursor,
+  };
 }
 
 export async function getGame(context: UserContext, podId: string, gameId: string) {
@@ -43,7 +110,8 @@ export async function getGame(context: UserContext, podId: string, gameId: strin
     powerLevel: gameParticipants.powerLevelSnapshot,
   }).from(gameParticipants).innerJoin(players, eq(players.id, gameParticipants.playerId))
     .where(eq(gameParticipants.gameId, gameId)).orderBy(asc(players.displayName));
-  return { ...game, participants };
+  const achievementsByGameId = await listGameAchievementBadges(context, podId, [gameId]);
+  return { ...game, participants, achievements: achievementsByGameId.get(gameId) ?? [] };
 }
 
 export async function createGame(context: UserContext, podId: string, input: z.infer<typeof createGameSchema>) {

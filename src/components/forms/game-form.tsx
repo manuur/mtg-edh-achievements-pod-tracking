@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useLoadingRouter } from "@/lib/loading-router";
 import { Plus, Users } from "lucide-react";
 import { ApiClientError, apiRequest } from "@/lib/client-api";
 import { Button, Card, Field, inputClass } from "@/components/ui";
@@ -9,7 +9,7 @@ import { DeckForm } from "@/components/forms/deck-form";
 import { zonedLocalDateTimeToIso } from "@/lib/timezone";
 
 type Member = { playerId: string; displayName: string; status: string };
-type DeckRow = { deck: { id: string; ownerPlayerId: string; name: string; bracket: number; powerLevel: number }; ownerName: string };
+type DeckRow = { deck: { id: string; ownerPlayerId: string; name: string; bracket: number; powerLevel: number | null }; ownerName: string };
 type InitialGame = {
   id: string;
   version: number;
@@ -29,10 +29,10 @@ export function GameForm({
   initialPlayedAt: string;
   initialGame?: InitialGame;
 }) {
-  const router = useRouter();
+  const router = useLoadingRouter();
   const activeMembers = members.filter((member) => member.status === "ACTIVE");
   const defaultPlayers = initialGame?.participants.map((participant) => participant.playerId)
-    ?? activeMembers.slice(0, 4).map((member) => member.playerId);
+    ?? activeMembers.slice(0, 8).map((member) => member.playerId);
   const [selected, setSelected] = useState<string[]>(defaultPlayers);
   const [resultKind, setResultKind] = useState<"WIN" | "DRAW">(initialGame?.resultKind ?? "WIN");
   const [winner, setWinner] = useState(initialGame?.winnerPlayerId ?? activeMembers[0]?.playerId ?? "");

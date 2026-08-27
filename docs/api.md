@@ -28,8 +28,11 @@ History endpoints use `limit` and opaque `cursor` parameters. Default and maximu
 - `GET|POST /decks`; `GET|PATCH|DELETE /decks/{deckId}`
 - `GET|POST /pods/{podId}/games`; `GET|PATCH|DELETE /pods/{podId}/games/{gameId}`
 - `GET|POST /admin/achievements`; `PATCH|DELETE /admin/achievements/{achievementId}`; `POST /admin/achievements/import`
+- `DELETE /admin/achievements/{achievementId}/hard-delete` (Superadmin, exact typed confirmation)
+- `GET /admin/users`; `DELETE /admin/users/{playerId}` (Superadmin, exact typed confirmation)
 - `GET|POST|DELETE /pods/{podId}/achievement-grants`
+- `GET /pods/{podId}/achievement-games?playerId={playerId}` (cursor-paginated eligible games for granting)
 - `GET /metrics/me`; `GET /metrics/pods/{podId}`; `GET /metrics/players/{playerId}`; `GET /metrics/decks/{deckId}`
-- `GET|PATCH /profile`; `GET /pods/{podId}/audit`
+- `GET|PATCH /profile`; `PATCH /profile/theme`; `GET /pods/{podId}/audit`
 
-`DELETE` means archive for PODs, memberships, decks, games, and achievements. Restore uses the documented `archived: false` update path. No v1 handler physically deletes domain history.
+Ordinary `DELETE` means archive for PODs, memberships, decks, games, and achievements. Restore uses the documented `archived: false` update path. The explicitly named Superadmin hard-delete endpoint physically removes an achievement and its grants; the Superadmin user endpoint physically removes a non-Superadmin identity and the dependent records described in the domain contract.

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useLoadingRouter } from "@/lib/loading-router";
 import { authClient } from "@/lib/auth/client";
+import { withGlobalLoading } from "@/lib/loading";
 import { Button } from "@/components/ui";
 
 export function GoogleSignIn({ devBypass = false }: { devBypass?: boolean }) {
-  const router = useRouter();
+  const router = useLoadingRouter();
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
 
@@ -18,7 +19,10 @@ export function GoogleSignIn({ devBypass = false }: { devBypass?: boolean }) {
     setPending(true);
     setError(undefined);
     try {
-      await authClient.signIn.social({ provider: "google", callbackURL: "/dashboard" });
+      await withGlobalLoading(
+        () => authClient.signIn.social({ provider: "google", callbackURL: "/dashboard" }),
+        "Opening Google…",
+      );
     } catch {
       setError("Google sign-in could not start. Check the Neon Auth configuration.");
       setPending(false);

@@ -17,7 +17,7 @@ Neon compute may scale to zero. All database access must tolerate a cold first r
 
 ## Runtime boundaries
 
-The browser talks only to same-origin `/api/v1` handlers. Route handlers validate the Neon Auth session, resolve the linked player, and forward its JWT through Neon's authenticated SQL/Data API endpoints, so ordinary reads and writes execute as the `authenticated` role under RLS. Transactional game and private claim-email changes use actor-bound `api` functions. The elevated connection is confined to the trusted claim-or-create callback and operator workflows such as migrations, backups, and Superuser bootstrap.
+The browser talks only to same-origin `/api/v1` handlers and never receives database credentials. Route handlers validate the Neon Auth session, resolve the linked player, and enforce the application role checks before using the trusted server-side Drizzle connection. Security-sensitive transactional game and private claim-email changes additionally forward the user's JWT through Neon's Data API to actor-bound `api` functions, where RLS and the function contract enforce the same identity again. Do not pass a Neon Auth JWT to the direct SQL driver or configure Neon's separate direct-SQL JWT/JWKS RLS mode on a Data API branch. Operator-only migrations, backups, and Superadmin bootstrap use the unpooled maintenance connection.
 
 ## Environments
 

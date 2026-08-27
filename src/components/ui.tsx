@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 export function Button({ className, variant = "primary", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" | "danger" }) {
   const variants = {
-    primary: "bg-amber-300 text-stone-950 hover:bg-amber-200 shadow-[0_8px_24px_rgba(251,191,36,.2)]",
+    primary: "bg-amber-300 text-[var(--button-primary-text)] hover:bg-amber-200 shadow-[0_8px_24px_rgba(251,191,36,.2)]",
     secondary: "border border-white/12 bg-white/7 text-stone-100 hover:bg-white/12",
     ghost: "text-stone-300 hover:bg-white/8 hover:text-white",
     danger: "border border-red-400/25 bg-red-400/10 text-red-200 hover:bg-red-400/18",
@@ -14,7 +14,7 @@ export function Button({ className, variant = "primary", ...props }: ButtonHTMLA
 
 export function LinkButton({ href, children, className, variant = "primary" }: { href: string; children: ReactNode; className?: string; variant?: "primary" | "secondary" | "ghost" }) {
   const variants = {
-    primary: "bg-amber-300 text-stone-950 hover:bg-amber-200",
+    primary: "bg-amber-300 text-[var(--button-primary-text)] hover:bg-amber-200",
     secondary: "border border-white/12 bg-white/7 text-stone-100 hover:bg-white/12",
     ghost: "text-stone-300 hover:bg-white/8 hover:text-white",
   };
@@ -36,7 +36,7 @@ export function Badge({ children, tone = "neutral", className }: { children: Rea
   return <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold tracking-[.12em] uppercase", tones[tone], className)}>{children}</span>;
 }
 
-export function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+export function Field({ label, error, children }: { label: ReactNode; error?: string; children: ReactNode }) {
   return <label className="grid gap-2 text-sm font-medium text-stone-300"><span>{label}</span>{children}{error && <span className="text-xs text-red-300">{error}</span>}</label>;
 }
 

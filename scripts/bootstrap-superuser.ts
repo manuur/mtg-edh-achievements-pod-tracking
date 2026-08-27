@@ -6,7 +6,7 @@ import { appSuperuser, playerClaimEmails, players } from "../src/db/schema";
 
 loadEnvConfig(process.cwd());
 
-const email = process.argv[2]?.trim().toLowerCase();
+const email = process.argv.slice(2).find((argument) => argument !== "--")?.trim().toLowerCase();
 if (!email) throw new Error("Usage: pnpm db:bootstrap-superuser -- owner@example.com");
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required.");
@@ -22,5 +22,8 @@ if (!candidate?.authUserId) {
   throw new Error("That email has not completed Google sign-in and cannot be bootstrapped.");
 }
 
-await db.insert(appSuperuser).values({ authUserId: candidate.authUserId });
-console.log(`Superuser bootstrapped for ${email}. Future changes require an operator migration.`);
+await db.insert(appSuperuser).values({ authUserId: candidate.authUserId }).onConflictDoUpdate({
+  target: appSuperuser.singleton,
+  set: { authUserId: candidate.authUserId },
+});
+console.log(`Singleton Superadmin bootstrapped for ${email}. Future changes require this operator script.`);

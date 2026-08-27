@@ -31,7 +31,7 @@ export async function requirePodRole(context: UserContext, podId: string, minimu
 }
 
 export function requireSuperuser(context: UserContext) {
-  if (!context.isSuperuser) throw new AppError(403, "FORBIDDEN", "Superuser access is required.");
+  if (!context.isSuperuser) throw new AppError(403, "FORBIDDEN", "Superadmin access is required.");
 }
 
 export async function writeAudit(input: {

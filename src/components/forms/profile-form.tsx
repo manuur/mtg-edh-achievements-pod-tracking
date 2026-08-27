@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useLoadingRouter } from "@/lib/loading-router";
 import { ApiClientError, apiRequest } from "@/lib/client-api";
 import { Button, Field, inputClass } from "@/components/ui";
 
 export function ProfileForm({ profile }: { profile: { displayName: string; email: string; version: number } }) {
-  const router = useRouter();
+  const router = useLoadingRouter();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();

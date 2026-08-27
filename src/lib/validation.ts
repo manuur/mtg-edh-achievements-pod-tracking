@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { THEME_PREFERENCES } from "@/lib/theme-types";
 
 export const podRoleSchema = z.enum(["ADMIN", "EDITOR", "GUEST"]);
 export const membershipStatusSchema = z.enum(["ACTIVE", "ARCHIVED"]);
@@ -6,6 +7,7 @@ export const gameResultKindSchema = z.enum(["WIN", "DRAW"]);
 export const commanderBracketSchema = z.union([
   z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5),
 ]);
+export const themePreferenceSchema = z.enum(THEME_PREFERENCES);
 
 const optionalMoxfieldUrl = z
   .union([z.literal(""), z.url({ protocol: /^https$/ })])
@@ -30,6 +32,11 @@ export const updateProfileSchema = z.object({
   version: z.number().int().positive(),
 });
 
+export const updateThemePreferenceSchema = z.object({
+  themePreference: themePreferenceSchema,
+  version: z.number().int().positive(),
+});
+
 export const addMemberSchema = z.object({
   displayName: z.string().trim().min(1).max(80),
   email: z.union([z.literal(""), z.email()]).optional().transform((value) => value?.toLowerCase() || null),
@@ -47,7 +54,7 @@ export const createDeckSchema = z.object({
   ownerPlayerId: z.uuid(),
   name: z.string().trim().min(1).max(80),
   bracket: commanderBracketSchema,
-  powerLevel: z.number().min(0).max(10),
+  powerLevel: z.number().min(0).max(10).nullable().optional().default(null),
   moxfieldUrl: optionalMoxfieldUrl,
 });
 
@@ -95,9 +102,15 @@ export const updateAchievementSchema = achievementSchema.partial().extend({
   archived: z.boolean().optional(),
 });
 
+export const hardDeleteSchema = z.object({
+  version: z.number().int().positive(),
+  confirmation: z.string().min(1).max(200),
+});
+
 export const achievementGrantSchema = z.object({
   playerId: z.uuid(),
   achievementId: z.uuid(),
+  gameId: z.uuid(),
   notes: z.string().trim().max(500).optional().default(""),
 });
 
@@ -113,3 +126,4 @@ export const metricRangeSchema = z.object({
 export type PodRole = z.infer<typeof podRoleSchema>;
 export type GameResultKind = z.infer<typeof gameResultKindSchema>;
 export type CommanderBracket = z.infer<typeof commanderBracketSchema>;
+export type ThemePreference = z.infer<typeof themePreferenceSchema>;

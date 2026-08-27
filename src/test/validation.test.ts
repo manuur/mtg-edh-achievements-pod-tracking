@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDeckSchema, createGameSchema, createPodSchema } from "@/lib/validation";
+import { achievementGrantSchema, createDeckSchema, createGameSchema, createPodSchema, hardDeleteSchema, updateThemePreferenceSchema } from "@/lib/validation";
 
 const playerA = "10000000-0000-4000-8000-000000000001";
 const playerB = "10000000-0000-4000-8000-000000000002";
@@ -39,6 +39,11 @@ describe("game validation", () => {
 
 describe("deck validation", () => {
   const base = { ownerPlayerId: playerA, name: "Teysa", bracket: 3, powerLevel: 7.25 };
+  it("accepts an omitted or explicitly empty power level", () => {
+    const withoutPower = { ownerPlayerId: playerA, name: "Teysa", bracket: 3 };
+    expect(createDeckSchema.parse(withoutPower).powerLevel).toBeNull();
+    expect(createDeckSchema.parse({ ...base, powerLevel: null }).powerLevel).toBeNull();
+  });
   it("accepts HTTPS Moxfield links", () => expect(createDeckSchema.safeParse({ ...base, moxfieldUrl: "https://moxfield.com/decks/example_1" }).success).toBe(true));
   it("rejects non-Moxfield and HTTP links", () => {
     expect(createDeckSchema.safeParse({ ...base, moxfieldUrl: "https://example.com/decks/1" }).success).toBe(false);
@@ -55,5 +60,30 @@ describe("POD validation", () => {
   it("accepts IANA timezones and rejects invented zones", () => {
     expect(createPodSchema.safeParse({ name: "Friday", timezone: "America/Argentina/Buenos_Aires" }).success).toBe(true);
     expect(createPodSchema.safeParse({ name: "Friday", timezone: "Buenos Aires time" }).success).toBe(false);
+  });
+});
+
+describe("theme preference validation", () => {
+  it("accepts only system, light, or dark preferences", () => {
+    expect(updateThemePreferenceSchema.safeParse({ themePreference: "SYSTEM", version: 1 }).success).toBe(true);
+    expect(updateThemePreferenceSchema.safeParse({ themePreference: "LIGHT", version: 1 }).success).toBe(true);
+    expect(updateThemePreferenceSchema.safeParse({ themePreference: "DARK", version: 1 }).success).toBe(true);
+    expect(updateThemePreferenceSchema.safeParse({ themePreference: "AUTO", version: 1 }).success).toBe(false);
+  });
+});
+
+describe("hard-delete validation", () => {
+  it("requires an optimistic version and a non-empty typed confirmation", () => {
+    expect(hardDeleteSchema.safeParse({ version: 1, confirmation: "DELETE Mara" }).success).toBe(true);
+    expect(hardDeleteSchema.safeParse({ version: 0, confirmation: "DELETE Mara" }).success).toBe(false);
+    expect(hardDeleteSchema.safeParse({ version: 1, confirmation: "" }).success).toBe(false);
+  });
+});
+
+describe("achievement grant validation", () => {
+  it("requires the game where the achievement was earned", () => {
+    const grant = { playerId: playerA, achievementId: "40000000-0000-4000-8000-000000000001", gameId: "50000000-0000-4000-8000-000000000001" };
+    expect(achievementGrantSchema.safeParse(grant).success).toBe(true);
+    expect(achievementGrantSchema.safeParse({ ...grant, gameId: undefined }).success).toBe(false);
   });
 });

@@ -281,7 +281,7 @@ Use separate Google Cloud projects for Development and Production.
 
 The Google secret belongs only in Neon Auth, not `.env.local`, Vercel, GitHub, or source code.
 
-Change `DEV_AUTH_BYPASS=false` in `.env.local`, restart, and sign in. Bootstrap the Development Superuser if desired:
+Change `DEV_AUTH_BYPASS=false` in `.env.local`, restart, and sign in. Bootstrap the Development Superadmin:
 
 ```powershell
 corepack pnpm db:bootstrap-superuser -- your-google-email@example.com
@@ -309,7 +309,7 @@ Smoke test:
 
 1. Sign in through Production Google OAuth.
 2. Confirm `/dashboard` loads.
-3. Run **Bootstrap application Superuser**, target `production`, with the exact signed-in email.
+3. Run **Bootstrap application Superadmin**, target `production`, with the exact signed-in email.
 4. Verify `/admin/achievements`.
 5. Create a POD, members, decks, and a game.
 6. Confirm Editor/Guest restrictions and metrics.
@@ -385,7 +385,7 @@ For a restore drill, create a disposable branch in the production Neon resource,
 | Cookie secret | Manually scoped | Development value | No | No | No |
 | Google client ID/secret | No | No | No | OAuth provider config | Source |
 | R2 credentials/passphrase | No | No | Repository secrets | No | No |
-| Superuser assignment | No | No | Operator workflow | App database | No |
+| Superadmin assignment | No | No | Operator workflow | App database | No |
 
 If any secret is exposed, rotate it at the provider; removing it from a file is not enough.
 
@@ -407,6 +407,7 @@ git status --short
 - Preview migration uses a pooler: enable `DATABASE_URL_UNPOOLED` in integration variables.
 - `permission denied for schema api`: Data API roles were created after migrations; correct and retest grants in a disposable branch first.
 - Auth works locally but not in Preview: inspect Preview-specific Auth URL, trusted origin, and Google callback.
+- `jwk not found` from a direct SQL query: do not pass the Neon Auth JWT to `neon(DATABASE_URL, { authToken })` in this Data API architecture. Use `NEON_DATA_API_URL` plus `fetchWithToken` for user-authorized operations, and keep the separate Neon RLS/JWKS integration disabled.
 - New Vercel variables are ignored: redeploy; variables affect new deployments only.
 - `redirect_uri_mismatch`: Google's value is not byte-for-byte identical to Neon's callback.
 - Production missing tables/functions: run the protected Production migration workflow for the deployed commit.

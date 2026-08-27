@@ -5,12 +5,12 @@ import { players, podMemberships } from "@/db/schema";
 import type { UserContext } from "@/lib/auth/server";
 import { requirePodRole, writeAudit } from "@/lib/authorization";
 import { AppError } from "@/lib/errors";
-import type { updateProfileSchema } from "@/lib/validation";
+import type { updateProfileSchema, updateThemePreferenceSchema } from "@/lib/validation";
 
 export async function getProfile(context: UserContext) {
   const profile = await getDb(context).query.players.findFirst({ where: eq(players.id, context.player.id) });
   if (!profile) throw new AppError(404, "NOT_FOUND", "Profile not found.");
-  return { id: profile.id, displayName: profile.displayName, email: context.user.email, version: profile.version };
+  return { id: profile.id, displayName: profile.displayName, email: context.user.email, themePreference: profile.themePreference, version: profile.version };
 }
 
 export async function getSharedPlayer(context: UserContext, playerId: string, podId?: string) {
@@ -38,4 +38,19 @@ export async function updateProfile(context: UserContext, input: z.infer<typeof 
   if (!updated) throw new AppError(409, "CONFLICT", "Your profile changed in another session.");
   await writeAudit({ context, action: "PROFILE_UPDATED", entityType: "player", entityId: context.player.id });
   return { ...updated, email: context.user.email };
+}
+
+export async function updateThemePreference(context: UserContext, input: z.infer<typeof updateThemePreferenceSchema>) {
+  const [updated] = await getDb(context).update(players).set({
+    themePreference: input.themePreference,
+    updatedAt: new Date(),
+    version: input.version + 1,
+  }).where(and(eq(players.id, context.player.id), eq(players.version, input.version))).returning({
+    id: players.id,
+    themePreference: players.themePreference,
+    version: players.version,
+  });
+  if (!updated) throw new AppError(409, "CONFLICT", "Your theme preference changed in another session.");
+  await writeAudit({ context, action: "PROFILE_THEME_UPDATED", entityType: "player", entityId: context.player.id, metadata: { themePreference: updated.themePreference } });
+  return updated;
 }

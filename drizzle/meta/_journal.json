@@ -15,6 +15,41 @@
       "when": 1787423996729,
       "tag": "0001_authorization_and_game_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787702542118,
+      "tag": "0002_fix_identity_validation",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787792400000,
+      "tag": "0003_superadmin_hard_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787792401000,
+      "tag": "0004_achievement_game_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787792402000,
+      "tag": "0005_optional_deck_power_level",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787878800000,
+      "tag": "0006_persisted_theme_preference",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,80 @@
+code,name,description,category,display_order
+jack-of-all-trades,Jack of all trades,"Ganarle a los 7 mazos de la Horda, con un mismo mazo",Against the horde,1
+baby-steps,Baby steps,Ganar una partida con un mazo de commander CMC = 1,CMC,2
+almost-a-kid,Almost a kid,Ganar una partida con un mazo de commander CMC = 2,CMC,3
+kiddo,Kiddo,Ganar una partida con un mazo de commander CMC = 3,CMC,4
+kinda-grown,Kinda grown,Ganar una partida con un mazo de commander CMC = 4,CMC,5
+adult,Adult,Ganar una partida con un mazo de commander CMC = 5,CMC,6
+getting-big,Getting big,Ganar una partida con un mazo de commander CMC = 6,CMC,7
+bigger-now,Bigger now,Ganar una partida con un mazo de commander CMC = 7,CMC,8
+big-boys,Big Boys,Ganar una partida con un mazo de commander (8 < CMC < 10),CMC,9
+emrakul-much,Emrakul much?,Ganar una partida con un mazo de commander CMC > 10,CMC,10
+monowhite,Monowhite,Ganar una partida con un mazo {W},Colors,11
+monoblue,Monoblue,Ganar una partida con un mazo {U},Colors,12
+monoblack,Monoblack,Ganar una partida con un mazo {B},Colors,13
+monored,Monored,Ganar una partida con un mazo {R},Colors,14
+monogreen,Monogreen,Ganar una partida con un mazo {G},Colors,15
+azorius,Azorius,Ganar una partida con un mazo {W}{U},Colors,16
+boros,Boros,Ganar una partida con un mazo {R}{W},Colors,17
+dimir,Dimir,Ganar una partida con un mazo {U}{B},Colors,18
+golgari,Golgari,Ganar una partida con un mazo {B}{G},Colors,19
+gruul,Gruul,Ganar una partida con un mazo {R}{G},Colors,20
+izzet,Izzet,Ganar una partida con un mazo {U}{R},Colors,21
+orzhov,Orzhov,Ganar una partida con un mazo {W}{B},Colors,22
+rakdos,Rakdos,Ganar una partida con un mazo {B}{R},Colors,23
+selesnya,Selesnya,Ganar una partida con un mazo {W}{G},Colors,24
+simic,Simic,Ganar una partida con un mazo {U}{G},Colors,25
+abzan,Abzan,Ganar una partida con un mazo {W}{B}{G},Colors,26
+bant,Bant,Ganar una partida con un mazo {W}{U}{G},Colors,27
+esper,Esper,Ganar una partida con un mazo {W}{U}{B},Colors,28
+grixis,Grixis,Ganar una partida con un mazo {U}{B}{R},Colors,29
+jeskai,Jeskai,Ganar una partida con un mazo {W}{U}{R},Colors,30
+jund,Jund,Ganar una partida con un mazo {B}{R}{G},Colors,31
+mardu,Mardu,Ganar una partida con un mazo {W}{B}{R},Colors,32
+naya,Naya,Ganar una partida con un mazo {W}{R}{G},Colors,33
+sultai,Sultai,Ganar una partida con un mazo {U}{B}{G},Colors,34
+temur,Temur,Ganar una partida con un mazo {U}{R}{G},Colors,35
+glint,Glint,Ganar una partida con un mazo {U}{B}{R}{G},Colors,36
+dune,Dune,Ganar una partida con un mazo {W}{B}{R}{G},Colors,37
+ink,Ink,Ganar una partida con un mazo {W}{U}{R}{G},Colors,38
+witch,Witch,Ganar una partida con un mazo {W}{B}{U}{G},Colors,39
+yore,Yore,Ganar una partida con un mazo {W}{B}{U}{R},Colors,40
+wubrg,WUBRG,Ganar una partida con un mazo {W}{U}{B}{R}{G},Colors,41
+colorless,Colorless,Ganar una partida con un mazo incoloro,Colors,42
+monochromatic,Monochromatic,Ganar una partida con un mazo de un solo color,Colors,43
+two-colors,Two colors,Ganar una partida con un mazo de dos colores,Colors,44
+three-colors,Three colors,Ganar una partida con un mazo de tres colores,Colors,45
+four-colors,Four colors,Ganar una partida con un mazo de cuatro colores,Colors,46
+headshot,Headshot,Hacer 40 de daño a un player en un turno,Damage,47
+double-tap,Double tap,Hacer 50 de daño a un player en un turno,Damage,48
+you-are-reaching-now,You are reaching now...,Hacer 100 de daño a un player en un turno,Damage,49
+partners-in-crime,Partners in crime,Ganar una partida con un mazo de Partner comanders,Deck building,50
+good-company,Good company,Ganar una partida con un mazo con Companion,Deck building,51
+builded-character,Builded Character,Ganar una partida con un mazo con Background,Deck building,52
+oh-shit,Oh shit,Alcanzar 100 de vida en una partida,Life,53
+holy-shit,HOLY SHIT,Alcanzar 1000 de vida en una partida,Life,54
+that-was-close,That was close,Ganar una partida con 1 de vida,Life,55
+rise-from-the-ashes,Rise from the ashes,Tener 1 de vida en una partida y terminar con 40+,Life,56
+oops-no-more-cards,"Oops, no more cards...",Sacar a un player por Millearle la biblioteca,Player removal,57
+you-disgust-me,You disgust me...,Sacar a un player por Poison damage,Player removal,58
+comander-power,Comander power,Sacar un player por Commander damage,Player removal,59
+tribal,Tribal,Tener en el campo 20 criaturas que compartan un mismo Tipo,Playstyle,60
+voltron,Voltron,Equipar una criatura con 5 equipments,Playstyle,61
+commander-game,Commander game,"Ganar una partida de 4 jugadores, todos contra todos",Modes,62
+big-pod,Big pod,"Ganar una partida de 5 jugadores, todos contra todos",Modes,63
+getting-outta-hand,Getting outta hand,"Ganar una partida de 6 jugadores, todos contra todos",Modes,64
+pentagon,Pentagon,"Ganar una partida de 5 jugadores, eliminando los jugadores que no son adyacentes",Modes,65
+asterisk,Asterisk,"Ganar una partida de 6 jugadores, en pareja con el jugador de en frente",Modes,66
+monarchy,Monarchy,"Ganar una partida de 6 jugadores, con roles ocultos y siendo el Rey",Modes,67
+archenemy,Archenemy,Ganar una partida siendo el Archenemy,Modes,68
+aura-1000,Aura +1000,Equipar una criatura con 5 auras,Playstyle,69
+darkest-ritual,Darkest ritual,Traer una criatura del cementerio con CMC >= 7,Playstyle,70
+necromancer,Necromancer,Traer 3 o mas criaturas del cementerio en el mismo turno,Playstyle,71
+thicc-boi,THICC BOI,Que una criatura tenga 100+ contadores +1/+1,Playstyle,72
+haha-nice,"HaHa, Nice!",Ganar una partida con un Power Level 6.9,Power Level,73
+six-seven,"Six, seven...",Ganar una partida con un Power Level 6.7,Power Level,74
+the-number-of-the-beast,The number of the beast,Ganar una partida con un Power Level 6.66,Power Level,75
+cardboard-win,Cardboard win,Ganar una partida con una wincon de una carta,Wincon,76
+one-man-army,One man army,"Empezar el turno con todos los players vivos, terminar el turno siendo el unico player vivo",Wincon,77
+wombo-combo,Wombo combo,Ganar una partida con un combo infinito,Wincon,78
+sidequest,Sidequest,Ganar una partida con una wincon de una Secret Sidequest,Wincon,79

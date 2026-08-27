@@ -4,6 +4,7 @@ import { getDb } from "@/db/client";
 import { appSuperuser, auditEvents, playerClaimEmails, players } from "@/db/schema";
 import { AppError } from "@/lib/errors";
 import { getServerEnv, isAuthConfigured, isDevAuthEnabled } from "@/lib/env";
+import type { ThemePreference } from "@/lib/theme-types";
 
 let neonAuth: ReturnType<typeof createNeonAuth> | null | undefined;
 
@@ -25,7 +26,7 @@ export interface AuthUser {
 
 export interface UserContext {
   user: AuthUser;
-  player: { id: string; displayName: string };
+  player: { id: string; displayName: string; themePreference: ThemePreference; version: number };
   isSuperuser: boolean;
   accessToken: string | null;
 }
@@ -48,13 +49,57 @@ export async function getAuthUser(): Promise<AuthUser | null> {
   const { data } = await auth.getSession();
   const user = data?.user;
   if (!user?.id || !user.email || user.emailVerified !== true) return null;
-  return { id: String(user.id), email: String(user.email).toLowerCase(), name: user.name || user.email.split("@")[0] };
+  return { id: String(user.id), email: String(user.email).trim().toLowerCase(), name: user.name || user.email.split("@")[0] };
+}
+
+async function repairMissingClaimEmail(playerId: string, emailNormalized: string) {
+  const db = getDb();
+  const existingClaim = await db.query.playerClaimEmails.findFirst({
+    where: eq(playerClaimEmails.playerId, playerId),
+  });
+  if (existingClaim) {
+    if (!existingClaim.claimedAt) {
+      await db.update(playerClaimEmails).set({ claimedAt: new Date() }).where(eq(playerClaimEmails.playerId, playerId));
+    }
+    return;
+  }
+
+  const emailClaim = await db.query.playerClaimEmails.findFirst({
+    where: eq(playerClaimEmails.emailNormalized, emailNormalized),
+  });
+  if (emailClaim && emailClaim.playerId !== playerId) {
+    throw new AppError(409, "CONFLICT", "This Google email is already linked to another player profile.");
+  }
+
+  const [inserted] = await db.insert(playerClaimEmails).values({
+    playerId,
+    emailNormalized,
+    claimedAt: new Date(),
+  }).onConflictDoNothing().returning({ playerId: playerClaimEmails.playerId });
+
+  if (!inserted) {
+    const recovered = await db.query.playerClaimEmails.findFirst({
+      where: eq(playerClaimEmails.playerId, playerId),
+    });
+    if (!recovered) throw new AppError(409, "CONFLICT", "The player claim email could not be recovered.");
+    return;
+  }
+
+  await db.insert(auditEvents).values({
+    actorPlayerId: playerId,
+    action: "PROFILE_IDENTITY_REPAIRED",
+    entityType: "player",
+    entityId: playerId,
+  });
 }
 
 async function resolvePlayer(user: AuthUser) {
   const db = getDb();
   const existing = await db.query.players.findFirst({ where: eq(players.authUserId, user.id) });
-  if (existing) return existing;
+  if (existing) {
+    await repairMissingClaimEmail(existing.id, user.email);
+    return existing;
+  }
 
   const claim = await db.query.playerClaimEmails.findFirst({
     where: eq(playerClaimEmails.emailNormalized, user.email.toLowerCase()),
@@ -99,17 +144,14 @@ export async function getUserContext(): Promise<UserContext | null> {
   const accessToken = auth && !isDevAuthEnabled()
     ? readAccessToken(await auth.token({}))
     : null;
-  let isSuperuser: boolean;
-  if (accessToken) {
-    const result = await getDb({ accessToken }).execute<{ is_superuser: boolean }>(sql`select private.is_superuser() as is_superuser`);
-    isSuperuser = Boolean(result.rows[0]?.is_superuser);
-  } else {
-    const superuser = await getDb().query.appSuperuser.findFirst({ where: eq(appSuperuser.authUserId, user.id) });
-    isSuperuser = Boolean(superuser);
-  }
+  // Runtime user-authorized operations go through the Data API. Sending this
+  // JWT through the direct SQL driver would use Neon's separate RLS/JWKS mode,
+  // which cannot be enabled on a branch that uses the Data API.
+  const superuser = await getDb().query.appSuperuser.findFirst({ where: eq(appSuperuser.authUserId, user.id) });
+  const isSuperuser = Boolean(superuser);
   return {
     user,
-    player: { id: player.id, displayName: player.displayName },
+    player: { id: player.id, displayName: player.displayName, themePreference: player.themePreference, version: player.version },
     isSuperuser,
     accessToken,
   };

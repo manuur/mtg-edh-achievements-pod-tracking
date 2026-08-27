@@ -1,7 +1,7 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { alias } from "drizzle-orm/pg-core";
-import { achievements, auditEvents, players, podMemberships, podPlayerAchievements, pods } from "@/db/schema";
+import { achievements, auditEvents, gameParticipants, games, players, podMemberships, podPlayerAchievements, pods } from "@/db/schema";
 import type { UserContext } from "@/lib/auth/server";
 import { AppError } from "@/lib/errors";
 import { requirePodRole, requireSuperuser, writeAudit } from "@/lib/authorization";
@@ -42,6 +42,34 @@ export async function updateAchievement(context: UserContext, achievementId: str
   if (!updated) throw new AppError(409, "CONFLICT", "The achievement was changed by someone else.");
   await writeAudit({ context, action: input.archived === true ? "ACHIEVEMENT_ARCHIVED" : input.archived === false ? "ACHIEVEMENT_RESTORED" : "ACHIEVEMENT_UPDATED", entityType: "achievement", entityId: achievementId });
   return updated;
+}
+
+export interface HardDeleteAchievementResult {
+  id: string;
+  code: string;
+  name: string;
+  grantsDeleted: number;
+}
+
+export async function hardDeleteAchievement(
+  context: UserContext,
+  achievementId: string,
+  input: { version: number; confirmation: string },
+) {
+  requireSuperuser(context);
+  const current = await getDb().query.achievements.findFirst({ where: eq(achievements.id, achievementId) });
+  if (!current) throw new AppError(404, "NOT_FOUND", "Achievement not found.");
+  const result = await getDb().execute<{ result: HardDeleteAchievementResult }>(sql`
+    select private.hard_delete_achievement(
+      ${context.user.id},
+      ${achievementId}::uuid,
+      ${input.version},
+      ${input.confirmation}
+    ) as result
+  `);
+  const deleted = result.rows[0]?.result;
+  if (!deleted) throw new AppError(500, "INTERNAL_ERROR", "The achievement could not be permanently deleted.");
+  return deleted;
 }
 
 export interface AchievementCsvRow { code?: string; name: string; description?: string; category?: string; display_order?: string | number }
@@ -108,6 +136,9 @@ export async function listPodAchievements(context: UserContext, podId: string) {
     podId: podPlayerAchievements.podId,
     playerId: podPlayerAchievements.playerId,
     achievementId: podPlayerAchievements.achievementId,
+    gameId: podPlayerAchievements.gameId,
+    earnedAt: games.playedAt,
+    gameArchivedAt: games.archivedAt,
     grantedByPlayerId: podPlayerAchievements.grantedByPlayerId,
     grantedByName: grantor.displayName,
     grantedAt: podPlayerAchievements.grantedAt,
@@ -117,33 +148,183 @@ export async function listPodAchievements(context: UserContext, podId: string) {
     revokedAt: podPlayerAchievements.revokedAt,
     version: podPlayerAchievements.version,
   }).from(podPlayerAchievements)
+    .innerJoin(games, eq(games.id, podPlayerAchievements.gameId))
     .innerJoin(grantor, eq(grantor.id, podPlayerAchievements.grantedByPlayerId))
     .leftJoin(revoker, eq(revoker.id, podPlayerAchievements.revokedByPlayerId))
     .where(eq(podPlayerAchievements.podId, podId));
   return { catalog, members, grants };
 }
 
+export interface AchievementGameSummary {
+  id: string;
+  playedAt: Date;
+  resultKind: "WIN" | "DRAW";
+  winnerName: string | null;
+  winnerDeckName: string | null;
+  participantCount: number;
+  notes: string;
+}
+
+export async function listAchievementGames(
+  context: UserContext,
+  podId: string,
+  playerId: string,
+  options: { limit?: number; cursor?: string } = {},
+) {
+  await requirePodRole(context, podId, "EDITOR");
+  const db = getDb(context);
+  const membership = await db.query.podMemberships.findFirst({
+    where: and(
+      eq(podMemberships.podId, podId),
+      eq(podMemberships.playerId, playerId),
+      eq(podMemberships.status, "ACTIVE"),
+      isNull(podMemberships.archivedAt),
+    ),
+  });
+  if (!membership) throw new AppError(422, "VALIDATION_ERROR", "Achievements can only be granted to active POD players.");
+
+  const limit = Math.min(Math.max(options.limit ?? 25, 1), 100);
+  let cursor: { playedAt: Date; id: string } | null = null;
+  if (options.cursor) {
+    try {
+      const decoded = JSON.parse(Buffer.from(options.cursor, "base64url").toString("utf8")) as { playedAt: string; id: string };
+      cursor = { playedAt: new Date(decoded.playedAt), id: decoded.id };
+      if (Number.isNaN(cursor.playedAt.getTime()) || !cursor.id) throw new Error("invalid cursor");
+    } catch {
+      throw new AppError(422, "VALIDATION_ERROR", "The achievement game cursor is invalid.");
+    }
+  }
+
+  const rows = await db.select({
+    id: games.id,
+    playedAt: games.playedAt,
+    resultKind: games.resultKind,
+    winnerName: sql<string | null>`(
+      select winner.display_name from app.players winner where winner.id = ${games.winnerPlayerId}
+    )`,
+    winnerDeckName: sql<string | null>`(
+      select winner_participant.deck_name_snapshot
+      from app.game_participants winner_participant
+      where winner_participant.game_id = ${games.id}
+        and winner_participant.player_id = ${games.winnerPlayerId}
+    )`,
+    participantCount: sql<number>`(
+      select count(*)::integer from app.game_participants participant_count where participant_count.game_id = ${games.id}
+    )`,
+    notes: games.notes,
+  }).from(games)
+    .innerJoin(gameParticipants, and(eq(gameParticipants.gameId, games.id), eq(gameParticipants.playerId, playerId)))
+    .where(and(
+      eq(games.podId, podId),
+      isNull(games.archivedAt),
+      cursor ? or(lt(games.playedAt, cursor.playedAt), and(eq(games.playedAt, cursor.playedAt), lt(games.id, cursor.id))) : undefined,
+    ))
+    .orderBy(desc(games.playedAt), desc(games.id))
+    .limit(limit + 1);
+
+  const hasMore = rows.length > limit;
+  const items = rows.slice(0, limit);
+  const nextCursor = hasMore
+    ? Buffer.from(JSON.stringify({ playedAt: items[items.length - 1].playedAt.toISOString(), id: items[items.length - 1].id })).toString("base64url")
+    : null;
+  return { items, nextCursor };
+}
+
 export async function grantAchievement(context: UserContext, podId: string, input: z.infer<typeof achievementGrantSchema>) {
   await requirePodRole(context, podId, "EDITOR");
-  const member = await getDb(context).query.podMemberships.findFirst({ where: and(eq(podMemberships.podId, podId), eq(podMemberships.playerId, input.playerId), eq(podMemberships.status, "ACTIVE"), isNull(podMemberships.archivedAt)) });
-  if (!member) throw new AppError(422, "VALIDATION_ERROR", "Achievements can only be granted to active POD players.");
-  const achievement = await getDb(context).query.achievements.findFirst({ where: and(eq(achievements.id, input.achievementId), isNull(achievements.archivedAt)) });
-  if (!achievement) throw new AppError(422, "VALIDATION_ERROR", "Only active catalog achievements can be granted.");
-  const [grant] = await getDb(context).insert(podPlayerAchievements).values({
-    podId, playerId: input.playerId, achievementId: input.achievementId, grantedByPlayerId: context.player.id, notes: input.notes,
-  }).onConflictDoUpdate({
-    target: [podPlayerAchievements.podId, podPlayerAchievements.playerId, podPlayerAchievements.achievementId],
-    set: { grantedByPlayerId: context.player.id, grantedAt: new Date(), notes: input.notes, revokedByPlayerId: null, revokedAt: null, version: sql`${podPlayerAchievements.version} + 1` },
-  }).returning();
-  await writeAudit({ context, podId, action: "ACHIEVEMENT_GRANTED", entityType: "achievement_grant", entityId: `${input.playerId}:${input.achievementId}` });
+  const result = await getDb(context).execute<{
+    podId: string;
+    playerId: string;
+    achievementId: string;
+    gameId: string;
+    earnedAt: Date;
+    grantedAt: Date;
+    notes: string;
+    version: number;
+  }>(sql`
+    with eligible_game as (
+      select game.id
+      from app.games game
+      join app.game_participants participant
+        on participant.game_id = game.id and participant.player_id = ${input.playerId}::uuid
+      join app.pod_memberships membership
+        on membership.pod_id = game.pod_id
+       and membership.player_id = participant.player_id
+       and membership.status = 'ACTIVE'
+       and membership.archived_at is null
+      join app.achievements achievement
+        on achievement.id = ${input.achievementId}::uuid and achievement.archived_at is null
+      where game.id = ${input.gameId}::uuid
+        and game.pod_id = ${podId}::uuid
+        and game.archived_at is null
+    ), upserted as (
+      insert into app.pod_player_achievements as grant_row (
+        pod_id, player_id, achievement_id, game_id, granted_by_player_id, granted_at, notes,
+        revoked_by_player_id, revoked_at
+      )
+      select ${podId}::uuid, ${input.playerId}::uuid, ${input.achievementId}::uuid,
+        eligible_game.id, ${context.player.id}::uuid, now(), ${input.notes}, null, null
+      from eligible_game
+      on conflict (pod_id, player_id, achievement_id) do update set
+        game_id = excluded.game_id,
+        granted_by_player_id = excluded.granted_by_player_id,
+        granted_at = excluded.granted_at,
+        notes = excluded.notes,
+        revoked_by_player_id = null,
+        revoked_at = null,
+        version = grant_row.version + 1
+      returning *
+    ), logged as (
+      insert into app.audit_events (pod_id, actor_player_id, action, entity_type, entity_id, metadata)
+      select ${podId}::uuid, ${context.player.id}::uuid, 'ACHIEVEMENT_GRANTED', 'achievement_grant',
+        ${`${input.playerId}:${input.achievementId}`}, jsonb_build_object('gameId', upserted.game_id)
+      from upserted
+    )
+    select upserted.pod_id as "podId", upserted.player_id as "playerId",
+      upserted.achievement_id as "achievementId", upserted.game_id as "gameId",
+      game.played_at as "earnedAt", upserted.granted_at as "grantedAt",
+      upserted.notes, upserted.version
+    from upserted join app.games game on game.id = upserted.game_id
+  `);
+  const grant = result.rows[0];
+  if (!grant) {
+    throw new AppError(422, "VALIDATION_ERROR", "Choose an active game from this POD in which the player participated.");
+  }
   return grant;
 }
 
 export async function revokeAchievement(context: UserContext, podId: string, playerId: string, achievementId: string, version: number) {
   await requirePodRole(context, podId, "EDITOR");
-  const [grant] = await getDb(context).update(podPlayerAchievements).set({ revokedByPlayerId: context.player.id, revokedAt: new Date(), version: version + 1 })
-    .where(and(eq(podPlayerAchievements.podId, podId), eq(podPlayerAchievements.playerId, playerId), eq(podPlayerAchievements.achievementId, achievementId), eq(podPlayerAchievements.version, version))).returning();
+  const result = await getDb(context).execute<{
+    podId: string;
+    playerId: string;
+    achievementId: string;
+    gameId: string;
+    revokedAt: Date;
+    version: number;
+  }>(sql`
+    with updated as (
+      update app.pod_player_achievements set
+        revoked_by_player_id = ${context.player.id}::uuid,
+        revoked_at = now(),
+        version = version + 1
+      where pod_id = ${podId}::uuid
+        and player_id = ${playerId}::uuid
+        and achievement_id = ${achievementId}::uuid
+        and version = ${version}
+        and revoked_at is null
+      returning *
+    ), logged as (
+      insert into app.audit_events (pod_id, actor_player_id, action, entity_type, entity_id, metadata)
+      select ${podId}::uuid, ${context.player.id}::uuid, 'ACHIEVEMENT_REVOKED', 'achievement_grant',
+        ${`${playerId}:${achievementId}`}, jsonb_build_object('gameId', updated.game_id)
+      from updated
+    )
+    select pod_id as "podId", player_id as "playerId", achievement_id as "achievementId",
+      game_id as "gameId", revoked_at as "revokedAt", version
+    from updated
+  `);
+  const grant = result.rows[0];
   if (!grant) throw new AppError(409, "CONFLICT", "The achievement grant changed before it could be revoked.");
-  await writeAudit({ context, podId, action: "ACHIEVEMENT_REVOKED", entityType: "achievement_grant", entityId: `${playerId}:${achievementId}` });
   return grant;
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useLoadingRouter } from "@/lib/loading-router";
 import { useState } from "react";
 import { ApiClientError, apiRequest } from "@/lib/client-api";
 import { Button, Field, inputClass } from "@/components/ui";
 
 export function PodForm() {
-  const router = useRouter();
+  const router = useLoadingRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
 

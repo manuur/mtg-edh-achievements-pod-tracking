@@ -76,7 +76,8 @@ export async function podMetrics(context: UserContext, podId: string, range: Met
     db.execute<{ bucket: number; appearances: number }>(sql`
       select floor(gp.power_level_snapshot)::int as bucket, count(*)::int as appearances
       from app.game_participants gp join app.games g on g.id = gp.game_id
-      where g.pod_id = ${podId}::uuid and g.archived_at is null ${condition}
+      where g.pod_id = ${podId}::uuid and g.archived_at is null
+        and gp.power_level_snapshot is not null ${condition}
       group by 1 order by 1
     `),
     db.execute<{ player_a_id: string; player_a_name: string; player_b_id: string; player_b_name: string; games: number }>(sql`
@@ -92,14 +93,15 @@ export async function podMetrics(context: UserContext, podId: string, range: Met
     `),
     db.execute<{ player_id: string; display_name: string; earned: number; available: number; completion: number }>(sql`
       select p.id as player_id, p.display_name,
-        count(distinct grant_row.achievement_id) filter (where grant_row.revoked_at is null and achievement.id is not null)::int as earned,
+        count(distinct grant_row.achievement_id) filter (where grant_row.revoked_at is null and achievement.id is not null and g.id is not null)::int as earned,
         (select count(*)::int from app.achievements a where a.archived_at is null) as available,
-        coalesce(count(distinct grant_row.achievement_id) filter (where grant_row.revoked_at is null and achievement.id is not null)::numeric
+        coalesce(count(distinct grant_row.achievement_id) filter (where grant_row.revoked_at is null and achievement.id is not null and g.id is not null)::numeric
           / nullif((select count(*) from app.achievements a where a.archived_at is null), 0), 0)::float as completion
       from app.pod_memberships membership
       join app.players p on p.id = membership.player_id
       left join app.pod_player_achievements grant_row on grant_row.pod_id = membership.pod_id and grant_row.player_id = membership.player_id
       left join app.achievements achievement on achievement.id = grant_row.achievement_id and achievement.archived_at is null
+      left join app.games g on g.id = grant_row.game_id and g.archived_at is null ${condition}
       where membership.pod_id = ${podId}::uuid and membership.status = 'ACTIVE' and membership.archived_at is null
       group by p.id, p.display_name order by earned desc, p.display_name
     `),
@@ -173,7 +175,8 @@ export async function playerMetrics(context: UserContext, playerId: string, podI
     db.execute<{ power: number; appearances: number }>(sql`
       select round(gp.power_level_snapshot, 1)::float as power, count(*)::int as appearances
       from app.game_participants gp join app.games g on g.id = gp.game_id
-      where gp.player_id = ${playerId}::uuid and g.archived_at is null ${podFilter} ${condition}
+      where gp.player_id = ${playerId}::uuid and g.archived_at is null
+        and gp.power_level_snapshot is not null ${podFilter} ${condition}
       group by 1 order by 1
     `),
     db.execute<{ earned: number; available: number }>(podId ? sql`
@@ -181,14 +184,16 @@ export async function playerMetrics(context: UserContext, playerId: string, podI
         (select count(*)::int from app.achievements where archived_at is null) as available
       from app.pod_player_achievements grant_row
       join app.achievements achievement on achievement.id = grant_row.achievement_id and achievement.archived_at is null
-      where grant_row.pod_id = ${podId}::uuid and grant_row.player_id = ${playerId}::uuid
+      join app.games g on g.id = grant_row.game_id and g.archived_at is null
+      where grant_row.pod_id = ${podId}::uuid and grant_row.player_id = ${playerId}::uuid ${condition}
     ` : sql`
       select count(*) filter (where grant_row.revoked_at is null)::int as earned,
         ((select count(*) from app.achievements where archived_at is null)
           * (select count(*) from app.pod_memberships membership join app.pods pod on pod.id = membership.pod_id where membership.player_id = ${playerId}::uuid and membership.status = 'ACTIVE' and membership.archived_at is null and pod.archived_at is null))::int as available
       from app.pod_player_achievements grant_row
       join app.achievements achievement on achievement.id = grant_row.achievement_id and achievement.archived_at is null
-      where grant_row.player_id = ${playerId}::uuid
+      join app.games g on g.id = grant_row.game_id and g.archived_at is null
+      where grant_row.player_id = ${playerId}::uuid ${condition}
     `),
   ]);
   const base = summary.rows[0] ?? { games: 0, wins: 0, draws: 0, losses: 0, win_rate: 0, participation_share: 0, unique_opponents: 0, active_decks: 0 };
@@ -220,7 +225,7 @@ export async function deckMetrics(context: UserContext, deckId: string, podId?: 
       where d.id = ${deckId}::uuid and g.archived_at is null ${podFilter} ${condition}
       order by g.played_at desc limit 10
     `),
-    db.execute<{ bracket: number; power_level: number; appearances: number }>(sql`
+    db.execute<{ bracket: number; power_level: number | null; appearances: number }>(sql`
       select gp.bracket_snapshot::int as bracket, gp.power_level_snapshot::float as power_level, count(*)::int as appearances
       from app.game_participants gp join app.games g on g.id = gp.game_id
       where gp.deck_id = ${deckId}::uuid and g.archived_at is null ${podFilter} ${condition}

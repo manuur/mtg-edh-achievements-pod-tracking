@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -10,9 +11,11 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { THEME_PREFERENCES } from "@/lib/theme-types";
 
 export const appSchema = pgSchema("app");
 export const privateSchema = pgSchema("private");
@@ -20,6 +23,7 @@ export const privateSchema = pgSchema("private");
 export const podRole = appSchema.enum("pod_role", ["ADMIN", "EDITOR", "GUEST"]);
 export const membershipStatus = appSchema.enum("membership_status", ["ACTIVE", "ARCHIVED"]);
 export const gameResultKind = appSchema.enum("game_result_kind", ["WIN", "DRAW"]);
+export const themePreference = appSchema.enum("theme_preference", THEME_PREFERENCES);
 
 const auditColumns = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -32,6 +36,7 @@ export const players = appSchema.table("players", {
   id: uuid("id").primaryKey().defaultRandom(),
   authUserId: text("auth_user_id").unique(),
   displayName: text("display_name").notNull(),
+  themePreference: themePreference("theme_preference").notNull().default("SYSTEM"),
   ...auditColumns,
 }, (table) => [
   check("players_display_name_length", sql`char_length(${table.displayName}) between 1 and 80`),
@@ -82,7 +87,7 @@ export const decks = appSchema.table("decks", {
   ownerPlayerId: uuid("owner_player_id").notNull().references(() => players.id),
   name: text("name").notNull(),
   bracket: integer("bracket").notNull(),
-  powerLevel: numeric("power_level", { precision: 4, scale: 2, mode: "number" }).notNull(),
+  powerLevel: numeric("power_level", { precision: 4, scale: 2, mode: "number" }),
   moxfieldUrl: text("moxfield_url"),
   createdByPlayerId: uuid("created_by_player_id").notNull().references(() => players.id),
   ...auditColumns,
@@ -109,6 +114,7 @@ export const games = appSchema.table("games", {
   ...auditColumns,
 }, (table) => [
   uniqueIndex("games_pod_idempotency_unique").on(table.podId, table.idempotencyKey),
+  unique("games_id_pod_unique").on(table.id, table.podId),
   index("games_pod_played_idx").on(table.podId, table.archivedAt, table.playedAt),
   check("games_notes_length", sql`char_length(${table.notes}) <= 1000`),
   check("games_result_winner_consistency", sql`
@@ -123,7 +129,7 @@ export const gameParticipants = appSchema.table("game_participants", {
   deckId: uuid("deck_id").notNull().references(() => decks.id),
   deckNameSnapshot: text("deck_name_snapshot").notNull(),
   bracketSnapshot: integer("bracket_snapshot").notNull(),
-  powerLevelSnapshot: numeric("power_level_snapshot", { precision: 4, scale: 2, mode: "number" }).notNull(),
+  powerLevelSnapshot: numeric("power_level_snapshot", { precision: 4, scale: 2, mode: "number" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   primaryKey({ columns: [table.gameId, table.playerId] }),
@@ -151,6 +157,7 @@ export const podPlayerAchievements = appSchema.table("pod_player_achievements", 
   podId: uuid("pod_id").notNull().references(() => pods.id),
   playerId: uuid("player_id").notNull().references(() => players.id),
   achievementId: uuid("achievement_id").notNull().references(() => achievements.id),
+  gameId: uuid("game_id").notNull(),
   grantedByPlayerId: uuid("granted_by_player_id").notNull().references(() => players.id),
   grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
   notes: text("notes").notNull().default(""),
@@ -159,6 +166,17 @@ export const podPlayerAchievements = appSchema.table("pod_player_achievements", 
   version: integer("version").notNull().default(1),
 }, (table) => [
   primaryKey({ columns: [table.podId, table.playerId, table.achievementId] }),
+  foreignKey({
+    columns: [table.gameId, table.podId],
+    foreignColumns: [games.id, games.podId],
+    name: "pod_player_achievements_game_pod_fk",
+  }).onDelete("cascade"),
+  foreignKey({
+    columns: [table.gameId, table.playerId],
+    foreignColumns: [gameParticipants.gameId, gameParticipants.playerId],
+    name: "pod_player_achievements_game_player_fk",
+  }).onDelete("cascade"),
+  index("pod_player_achievements_game_idx").on(table.gameId),
   index("pod_player_achievements_pod_idx").on(table.podId, table.revokedAt),
 ]);
 

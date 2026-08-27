@@ -1,12 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useLoadingRouter } from "@/lib/loading-router";
 import { useState } from "react";
 import { ApiClientError, apiRequest } from "@/lib/client-api";
 import { Button, Field, inputClass } from "@/components/ui";
 
 export function MemberForm({ podId }: { podId: string }) {
-  const router = useRouter();
+  const router = useLoadingRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   async function submit(formData: FormData) {
@@ -21,7 +21,7 @@ export function MemberForm({ podId }: { podId: string }) {
 }
 
 export function MemberActions({ podId, playerId, role, status, claimed, version }: { podId: string; playerId: string; role: string; status: string; claimed: boolean; version: number }) {
-  const router = useRouter();
+  const router = useLoadingRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const [claimEmail, setClaimEmail] = useState("");

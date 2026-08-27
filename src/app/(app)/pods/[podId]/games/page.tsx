@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Plus } from "lucide-react";
+import { GameAchievementBadges } from "@/components/game-achievement-badges";
 import { Badge, Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { requireUserContext } from "@/lib/auth/server";
 import { formatDate } from "@/lib/utils";
@@ -27,7 +28,7 @@ export default async function GamesPage({ params, searchParams }: {
     {page.items.length ? <>
       <Card className="divide-y divide-white/7 overflow-hidden">{page.items.map((game) => <Link key={game.id} href={`/pods/${podId}/games/${game.id}`} className="flex items-center gap-4 p-5 transition hover:bg-white/4">
         <span className="grid size-11 place-items-center rounded-xl bg-white/6 font-display text-lg text-amber-200">{game.resultKind === "DRAW" ? "=" : "W"}</span>
-        <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="font-semibold">{game.resultKind === "DRAW" ? "Draw" : "Completed game"}</p><Badge tone={game.resultKind === "DRAW" ? "neutral" : "green"}>{game.resultKind}</Badge>{game.archivedAt && <Badge>Archived</Badge>}</div><p className="mt-1 text-xs text-stone-500">{formatDate(game.playedAt, pod.timezone)}{game.notes ? ` · ${game.notes}` : ""}</p></div>
+        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{game.resultKind === "DRAW" ? "Table draw" : `${game.winnerName ?? "Unknown player"} won${game.winnerDeckName ? ` with ${game.winnerDeckName}` : ""}`}</p><Badge tone={game.resultKind === "DRAW" ? "neutral" : "green"}>{game.resultKind}</Badge>{game.archivedAt && <Badge>Archived</Badge>}</div><p className="mt-1 text-xs text-stone-500">{formatDate(game.playedAt, pod.timezone)} · {game.participantCount} {game.participantCount === 1 ? "player" : "players"}{game.notes ? ` · ${game.notes}` : ""}</p><GameAchievementBadges achievements={game.achievements} /></div>
         <ArrowRight className="size-4 text-stone-600" />
       </Link>)}</Card>
       {page.nextCursor && <div className="flex justify-center"><LinkButton variant="secondary" href={`/pods/${podId}/games?${new URLSearchParams({ ...(includeArchived ? { archived: "true" } : {}), cursor: page.nextCursor }).toString()}`}>Older games</LinkButton></div>}

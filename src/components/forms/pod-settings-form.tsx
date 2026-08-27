@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useLoadingRouter } from "@/lib/loading-router";
 import { ApiClientError, apiRequest } from "@/lib/client-api";
 import { Button, Field, inputClass } from "@/components/ui";
 
 export function PodSettingsForm({ pod }: { pod: { id: string; name: string; timezone: string; version: number; archivedAt: Date | string | null } }) {
-  const router = useRouter();
+  const router = useLoadingRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   async function save(formData: FormData) {

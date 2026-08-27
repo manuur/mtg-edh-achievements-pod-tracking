@@ -4,11 +4,11 @@
 
 1. Import the GitHub repository into Vercel, then provision separate development/preview and production Neon resources through the Vercel Marketplace integration in regions close to the Vercel function region.
 2. Enable Neon Auth and Google OAuth in each project.
-3. Enable the Data API and authenticated SQL endpoint with Neon Auth as the JWT provider. Expose only the `api` schema through PostgREST; never expose `app` or `private` as Data API schemas.
+3. Enable the Data API with Neon Auth as its authentication provider. Expose only the `api` schema through PostgREST; never expose `app` or `private` as Data API schemas. Leave Neon's separate direct-SQL JWT/JWKS RLS mode disabled on this branch.
 4. Set the pooled `DATABASE_URL`, `DATABASE_NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, `NEON_DATA_API_URL`, and `NEXT_PUBLIC_APP_URL` in Vercel. Keep the direct `DATABASE_MIGRATION_URL` only in protected GitHub Environments for migration/operator workflows.
 5. Apply migrations to staging, run `pnpm db:verify`, then apply the same migration set to production.
 6. Register the Vercel preview and production callback URLs in Google OAuth and Neon Auth.
-7. Sign in once with the owner account and run `pnpm db:bootstrap-superuser -- owner@example.com` using operator credentials.
+7. Sign in once with the owner account and run `pnpm db:bootstrap-superuser -- owner@example.com` using operator credentials to assign the singleton Superadmin.
 
 ## Release
 
