@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, ChevronDown, LayoutDashboard, Plus, Shield, UserCog, UserRound, Users } from "lucide-react";
+import { BookOpen, ChevronDown, Gamepad2, LayoutDashboard, Plus, Shield, UserCog, UserRound, Users } from "lucide-react";
 import { cn, initials } from "@/lib/utils";
 import type { UserContext } from "@/lib/auth/server";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -22,6 +22,7 @@ export function AppNav({ context, pods }: { context: UserContext; pods: SidebarP
     ...links,
     { href: "/admin/users", label: "Users", icon: UserCog },
     { href: "/admin/achievements", label: "Achievements", icon: Shield },
+    { href: "/admin/game-modes", label: "Game modes", icon: Gamepad2 },
   ] : links;
   const mobileLinks = [
     { href: "/dashboard", label: "Home", icon: LayoutDashboard },

@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DeckForm } from "@/components/forms/deck-form";
 
 const { apiRequest } = vi.hoisted(() => ({ apiRequest: vi.fn() }));
@@ -13,6 +13,7 @@ vi.mock("@/lib/client-api", () => ({
 
 describe("deck form", () => {
   beforeEach(() => apiRequest.mockReset());
+  afterEach(cleanup);
 
   it("submits a blank power level as null", async () => {
     apiRequest.mockResolvedValue({
@@ -37,9 +38,29 @@ describe("deck form", () => {
           name: "Teysa",
           bracket: 3,
           powerLevel: null,
+          commanderCmc: null,
+          colorIdentity: null,
           moxfieldUrl: "",
         }),
       }),
     ));
+  });
+
+  it("submits integer Commander CMC and distinguishes colorless from unknown", async () => {
+    apiRequest.mockResolvedValue({
+      id: "20000000-0000-4000-8000-000000000001",
+      ownerPlayerId: "10000000-0000-4000-8000-000000000001",
+      name: "Karn",
+      bracket: 3,
+      powerLevel: null,
+      commanderCmc: 5,
+      colorIdentity: [],
+    });
+    render(<DeckForm ownerPlayerId="10000000-0000-4000-8000-000000000001" />);
+    await userEvent.type(screen.getByLabelText("Deck name"), "Karn");
+    await userEvent.type(screen.getByLabelText(/^Commander CMC · optional/), "5");
+    await userEvent.click(screen.getByLabelText("Colorless"));
+    await userEvent.click(screen.getByRole("button", { name: "Add deck" }));
+    await waitFor(() => expect(JSON.parse(apiRequest.mock.calls[0][1].body)).toMatchObject({ commanderCmc: 5, colorIdentity: [] }));
   });
 });

@@ -10,8 +10,8 @@ EDH Pod Tracker is a private, multi-tenant application where a POD is the tenant
 - Neon provides serverless Postgres and Neon Auth with Google OAuth.
 - Drizzle owns the typed schema and forward-only migrations.
 - PostgreSQL constraints and row-level policies are the final data-integrity boundary; route handlers add request validation and friendly errors.
-- The application is a modular monolith split into identity, POD, deck, game, achievement, and metrics modules.
-- Historical facts are preserved through archival and game-time snapshots.
+- The application is a modular monolith split into identity, POD, deck, game-mode catalog, game, achievement, and metrics modules.
+- Historical facts are preserved through archival and game-time snapshots, including deck metadata and the achievement automation rules in force when a game was created.
 
 Neon compute may scale to zero. All database access must tolerate a cold first request and reconnect without session assumptions.
 

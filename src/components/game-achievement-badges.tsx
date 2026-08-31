@@ -2,6 +2,7 @@ import { Award } from "lucide-react";
 import type { GameAchievementBadge } from "@/server/games";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui";
+import { GAME_ROLE_LABELS } from "@/lib/game-modes";
 
 export function GameAchievementBadges({
   achievements,
@@ -17,12 +18,13 @@ export function GameAchievementBadges({
   return <ul aria-label="Achievements earned in this game" className={cn("mt-2 flex flex-wrap gap-1.5", className)}>
     {achievements.map((achievement) => <li
       key={`${achievement.playerId}:${achievement.achievementId}`}
-      title={`${achievement.playerName} earned ${achievement.achievementName}${achievement.archivedAt ? " (archived catalog entry)" : ""}`}
-      className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-amber-300/20 bg-amber-300/8 px-2 py-1 text-[11px] font-semibold text-amber-100"
+      title={`${achievement.playerName} earned ${achievement.achievementName}${achievement.grantSource === "AUTOMATIC" ? ` automatically${achievement.winnerRole ? ` as ${GAME_ROLE_LABELS[achievement.winnerRole]}` : ""}` : ""}${achievement.archivedAt ? " (archived catalog entry)" : ""}`}
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-amber-300/20 bg-amber-300/8 px-2 py-1 text-[11px] font-semibold text-amber-100"
     >
       <Award aria-hidden="true" className="size-3 shrink-0 text-amber-300" />
-      <span className="truncate">{achievement.achievementName}</span>
-      {showPlayer && <span className="shrink-0 text-amber-300/65">· {achievement.playerName}</span>}
+      <span className="min-w-0 truncate">{achievement.achievementName}</span>
+      {achievement.grantSource === "AUTOMATIC" && <span className="text-amber-300/65">· Auto</span>}
+      {showPlayer && <span className="max-w-28 shrink truncate text-amber-300/65 sm:max-w-40">· {achievement.playerName}</span>}
     </li>)}
   </ul>;
 }

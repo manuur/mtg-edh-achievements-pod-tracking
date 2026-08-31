@@ -25,6 +25,8 @@ const grants = [{
   revokedAt: null,
   version: 1,
   grantedByName: "Nico",
+  grantSource: "MANUAL" as const,
+  automaticWinnerRole: null,
   notes: "Opening attack",
 }];
 
@@ -46,6 +48,18 @@ describe("achievement matrix", () => {
     for (const button of screen.getAllByRole("button", { name: /Revoke First blood for Mara/ })) {
       expect(button).toBeDisabled();
     }
+  });
+
+  it("labels system-awarded role achievements without a player grantor", () => {
+    const automatic = [{
+      ...grants[0],
+      grantedByName: null,
+      grantSource: "AUTOMATIC" as const,
+      automaticWinnerRole: "KINGSGUARD" as const,
+      notes: "",
+    }];
+    render(<AchievementMatrix podId="30000000-0000-4000-8000-000000000001" timeZone="UTC" catalog={catalog} members={members} grants={automatic} canEdit={false} />);
+    expect(screen.getByTitle(/Automatically awarded for winning as Kingsguard/)).toBeInTheDocument();
   });
 
   it("places members across the desktop header and achievements with descriptions down the side", () => {
@@ -78,10 +92,10 @@ describe("achievement matrix", () => {
     const game = {
       id: "40000000-0000-4000-8000-000000000001",
       playedAt: "2026-08-20T20:00:00.000Z",
+      gameMode: "FREE_FOR_ALL" as const,
+      gameModeName: "Free-for-all",
       resultKind: "WIN" as const,
-      winnerPlayerId: "20000000-0000-4000-8000-000000000002",
-      winnerName: "Nico",
-      winnerDeckName: "Atraxa, Praetors' Voice",
+      winners: [{ playerId: "20000000-0000-4000-8000-000000000002", playerName: "Nico", deckName: "Atraxa, Praetors' Voice" }],
       playerDeckName: "Alela, Artful Provocateur",
       participantCount: 4,
       notes: "Friday game",
@@ -90,9 +104,7 @@ describe("achievement matrix", () => {
       ...game,
       id: "40000000-0000-4000-8000-000000000002",
       playedAt: "2026-08-21T20:00:00.000Z",
-      winnerPlayerId: members[0].id,
-      winnerName: "Mara",
-      winnerDeckName: "Alela, Artful Provocateur",
+      winners: [{ playerId: members[0].id, playerName: "Mara", deckName: "Alela, Artful Provocateur" }],
       notes: "Saturday game",
     };
     const drawGame = {
@@ -100,9 +112,7 @@ describe("achievement matrix", () => {
       id: "40000000-0000-4000-8000-000000000003",
       playedAt: "2026-08-22T20:00:00.000Z",
       resultKind: "DRAW" as const,
-      winnerPlayerId: null,
-      winnerName: null,
-      winnerDeckName: null,
+      winners: [],
       notes: "Sunday game",
     };
     apiRequest.mockResolvedValueOnce({ items: [game, recipientWonGame, drawGame], nextCursor: null }).mockResolvedValueOnce({});
@@ -111,9 +121,9 @@ describe("achievement matrix", () => {
     await userEvent.click(screen.getAllByRole("button", { name: /Grant First blood for Mara/ })[0]);
     const gameSelect = await screen.findByLabelText("Game where achievement was earned");
     await waitFor(() => expect(gameSelect).toHaveValue(game.id));
-    expect(screen.getByRole("option", { name: /20\/08\/2026, 20:00 · Winner: Nico \(Atraxa, Praetors' Voice\) · Mara: Alela, Artful Provocateur/ })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /21\/08\/2026, 20:00 · Winner: Mara \(Alela, Artful Provocateur\) · 4 players · Saturday game/ })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /22\/08\/2026, 20:00 · Draw · Mara: Alela, Artful Provocateur · 4 players · Sunday game/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /20\/08\/2026, 20:00 · Free-for-all · Winner: Nico \(Atraxa, Praetors' Voice\) · Mara: Alela, Artful Provocateur/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /21\/08\/2026, 20:00 · Free-for-all · Winner: Mara \(Alela, Artful Provocateur\) · 4 players · Saturday game/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /22\/08\/2026, 20:00 · Free-for-all · Draw · Mara: Alela, Artful Provocateur · 4 players · Sunday game/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Optional achievement note")).toHaveValue("Alela, Artful Provocateur");
     await userEvent.click(screen.getByRole("button", { name: "Grant achievement" }));
 

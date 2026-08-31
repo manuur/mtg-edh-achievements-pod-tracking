@@ -12,6 +12,8 @@ const achievements: GameAchievementBadge[] = [
     playerId: "player-1",
     playerName: "Mara",
     archivedAt: null,
+    grantSource: "MANUAL",
+    winnerRole: null,
   },
   {
     achievementId: "achievement-2",
@@ -21,6 +23,8 @@ const achievements: GameAchievementBadge[] = [
     playerId: "player-1",
     playerName: "Mara",
     archivedAt: null,
+    grantSource: "AUTOMATIC",
+    winnerRole: "HERO",
   },
   {
     achievementId: "achievement-3",
@@ -30,6 +34,8 @@ const achievements: GameAchievementBadge[] = [
     playerId: "player-2",
     playerName: "Nico",
     archivedAt: new Date("2026-08-01T00:00:00.000Z"),
+    grantSource: "MANUAL",
+    winnerRole: null,
   },
 ];
 

@@ -1,7 +1,7 @@
 import { loadEnvConfig } from "./load-environment";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { achievements, decks, players, podMemberships, pods } from "../src/db/schema";
+import { achievementCategories, achievements, decks, players, podMemberships, pods } from "../src/db/schema";
 
 loadEnvConfig(process.cwd());
 
@@ -26,6 +26,11 @@ await db.batch([
   db.insert(decks).values([
     { ownerPlayerId: ownerId, name: "Atraxa Counters", bracket: 3, powerLevel: 7.25, createdByPlayerId: ownerId },
     { ownerPlayerId: guestId, name: "Krenko Goblins", bracket: 3, powerLevel: 7, createdByPlayerId: ownerId },
+  ]).onConflictDoNothing(),
+  db.insert(achievementCategories).values([
+    { name: "Table moments", displayOrder: 10 },
+    { name: "Comebacks", displayOrder: 20 },
+    { name: "Oddities", displayOrder: 30 },
   ]).onConflictDoNothing(),
   db.insert(achievements).values([
     { code: "first-blood", name: "First Blood", description: "Be the first player eliminated from a game.", category: "Table moments", displayOrder: 10, createdByPlayerId: ownerId },

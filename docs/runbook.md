@@ -7,6 +7,7 @@
 3. Enable the Data API with Neon Auth as its authentication provider. Expose only the `api` schema through PostgREST; never expose `app` or `private` as Data API schemas. Leave Neon's separate direct-SQL JWT/JWKS RLS mode disabled on this branch.
 4. Set the pooled `DATABASE_URL`, `DATABASE_NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, `NEON_DATA_API_URL`, and `NEXT_PUBLIC_APP_URL` in Vercel. Keep the direct `DATABASE_MIGRATION_URL` only in protected GitHub Environments for migration/operator workflows.
 5. Apply migrations to staging, run `pnpm db:verify`, then apply the same migration set to production.
+   After migration `0011`, configure all Archenemy and Monarchy role-achievement mappings in `/admin/game-modes`; new games for those modes remain unavailable until every role is mapped.
 6. Register the Vercel preview and production callback URLs in Google OAuth and Neon Auth.
 7. Sign in once with the owner account and run `pnpm db:bootstrap-superuser -- owner@example.com` using operator credentials to assign the singleton Superadmin.
 
@@ -26,8 +27,10 @@ Run the manual restore-drill workflow against an empty disposable Neon branch ev
 2. Create a POD, add a Guest placeholder with an exact claim email, and claim it from the second account.
 3. Record, edit, archive, and restore one game; confirm metrics change exactly once.
 4. Grant and revoke one achievement as an Editor.
-5. Confirm a non-member receives 403/404 for the POD API and cannot access `private` through the Data API.
-6. Trigger one encrypted backup and restore it into a disposable branch.
+5. As Superadmin, configure a general automatic win achievement on a temporary custom mode, then configure every Archenemy/Monarchy role mapping. Confirm ordinary users cannot mutate the catalog and every mode offers Draw.
+6. Record a role-mode win and confirm each winner receives only the achievement matching their saved role, attributed as “Automatically awarded.” Edit and archive the game and confirm only automatic grants reconcile.
+7. Confirm a non-member receives 403/404 for the POD API and cannot access `private` through the Data API.
+8. Trigger one encrypted backup and restore it into a disposable branch.
 
 ## Incidents
 

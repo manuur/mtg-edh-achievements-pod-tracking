@@ -9,6 +9,10 @@ const achievementGameEvidence = readFileSync(resolve(process.cwd(), "drizzle/000
 const optionalDeckPowerLevel = readFileSync(resolve(process.cwd(), "drizzle/0005_optional_deck_power_level.sql"), "utf8");
 const persistedThemePreference = readFileSync(resolve(process.cwd(), "drizzle/0006_persisted_theme_preference.sql"), "utf8");
 const placeholderPowerCleanup = readFileSync(resolve(process.cwd(), "drizzle/0007_clear_placeholder_power_levels.sql"), "utf8");
+const orderedAchievementCategories = readFileSync(resolve(process.cwd(), "drizzle/0008_ordered_achievement_categories.sql"), "utf8");
+const multiModeGames = readFileSync(resolve(process.cwd(), "drizzle/0009_multi_mode_games.sql"), "utf8");
+const gameModeCatalog = readFileSync(resolve(process.cwd(), "drizzle/0010_admin_game_mode_catalog.sql"), "utf8");
+const automaticWinAchievements = readFileSync(resolve(process.cwd(), "drizzle/0011_automatic_win_achievements_and_deck_metadata.sql"), "utf8");
 
 describe("database authorization contract", () => {
   it("enables RLS on every exposed domain table", () => {
@@ -99,5 +103,83 @@ describe("database authorization contract", () => {
     expect(placeholderPowerCleanup).toContain("WHERE power_level = 5.00");
     expect(placeholderPowerCleanup).toContain("UPDATE app.game_participants");
     expect(placeholderPowerCleanup).toContain("WHERE power_level_snapshot = 5.00");
+  });
+
+  it("normalizes achievement categories and protects their independent order", () => {
+    expect(orderedAchievementCategories).toContain("CREATE TABLE app.achievement_categories");
+    expect(orderedAchievementCategories).toContain("achievements_category_achievement_categories_name_fk");
+    expect(orderedAchievementCategories).toContain("ALTER TABLE app.achievement_categories ENABLE ROW LEVEL SECURITY");
+    expect(orderedAchievementCategories).toContain("CREATE POLICY achievement_categories_superuser_write");
+    expect(orderedAchievementCategories).toContain("CREATE VIEW api.achievement_categories");
+  });
+
+  it("expands games to modes, participant winners, seats, roles, and rule-aware opponents", () => {
+    expect(multiModeGames).toContain("CREATE TYPE app.game_mode");
+    expect(multiModeGames).toContain("ADD COLUMN is_winner boolean NOT NULL DEFAULT false");
+    expect(multiModeGames).toContain("UPDATE app.game_participants participant");
+    expect(multiModeGames).toContain("CREATE OR REPLACE FUNCTION private.validate_game_input");
+    expect(multiModeGames).toContain("Asterisk winners must be one opposite-seat pair");
+    expect(multiModeGames).toContain("CREATE OR REPLACE FUNCTION private.game_players_are_opponents");
+    expect(multiModeGames).toContain("CREATE OR REPLACE VIEW api.game_participants");
+  });
+
+  it("keeps legacy game RPCs while exposing mode-aware transactional overloads", () => {
+    expect(multiModeGames).toContain("p_game_mode app.game_mode");
+    expect(multiModeGames).toContain("p_winner_player_ids uuid[]");
+    expect(multiModeGames).toContain("COALESCE(p_winner_player_ids, ARRAY[]::uuid[])");
+    expect(multiModeGames).toContain("ON CONFLICT (pod_id, idempotency_key) DO NOTHING");
+    expect(multiModeGames).toContain("ON CONFLICT (game_id, player_id) DO UPDATE SET");
+  });
+
+  it("removes the legacy winner dependency from Superadmin player deletion", () => {
+    const replacement = multiModeGames.slice(multiModeGames.indexOf("CREATE OR REPLACE FUNCTION private.hard_delete_player"), multiModeGames.indexOf("CREATE OR REPLACE FUNCTION private.game_players_are_opponents"));
+    expect(replacement).toContain("FROM app.game_participants participant");
+    expect(replacement).not.toContain("winner_player_id = p_player_id");
+  });
+
+  it("replaces the fixed game-mode enum with a Superadmin-managed catalog", () => {
+    expect(gameModeCatalog).toContain("CREATE TABLE app.game_modes");
+    expect(gameModeCatalog).toContain("ALTER TABLE app.games ALTER COLUMN game_mode TYPE text");
+    expect(gameModeCatalog).toContain("games_game_mode_fk");
+    expect(gameModeCatalog).toContain("CREATE POLICY game_modes_superuser_write");
+    expect(gameModeCatalog).toContain("CREATE VIEW api.game_modes");
+    expect(gameModeCatalog).toContain("built-in player limits and winning rules are protected");
+  });
+
+  it("validates custom winners and permits draws for every catalog mode", () => {
+    expect(gameModeCatalog).toContain("v_mode.winning_criteria = 'ONE_WINNER'");
+    expect(gameModeCatalog).toContain("v_mode.winning_criteria = 'MULTIPLE_WINNERS'");
+    expect(gameModeCatalog).toContain("v_mode.winning_criteria = 'ONE_OR_MORE_WINNERS'");
+    expect(gameModeCatalog).toContain("p_result_kind = 'DRAW' AND v_winner_count <> 0");
+    expect(gameModeCatalog).toContain("p_game_mode text");
+  });
+
+  it("adds optional Commander metadata and immutable participant snapshots", () => {
+    expect(automaticWinAchievements).toContain("ADD COLUMN commander_cmc integer");
+    expect(automaticWinAchievements).toContain("ADD COLUMN color_identity text[]");
+    expect(automaticWinAchievements).toContain("commander_cmc_snapshot");
+    expect(automaticWinAchievements).toContain("color_identity_snapshot");
+    expect(automaticWinAchievements).toContain("deck.commander_cmc, deck.color_identity");
+    expect(automaticWinAchievements).toContain("existing_participant.commander_cmc_snapshot");
+    expect(automaticWinAchievements).toContain("existing_participant.color_identity_snapshot");
+  });
+
+  it("snapshots typed mode rules and reconciles only automatic grants", () => {
+    expect(automaticWinAchievements).toContain("CREATE TYPE app.achievement_automation_rule_type AS ENUM ('GAME_MODE_WIN')");
+    expect(automaticWinAchievements).toContain("CREATE TABLE app.game_mode_win_achievement_rules");
+    expect(automaticWinAchievements).toContain("CREATE TABLE app.game_achievement_rule_snapshots");
+    expect(automaticWinAchievements).toContain("game_mode_code text NOT NULL");
+    expect(automaticWinAchievements).toContain("CREATE OR REPLACE FUNCTION private.reconcile_automatic_achievement_grants");
+    expect(automaticWinAchievements).toContain("grant_row.grant_source = 'AUTOMATIC'");
+    expect(automaticWinAchievements).toContain("snapshot.winner_role IS NULL OR snapshot.winner_role = participant.mode_role");
+    expect(automaticWinAchievements).toContain("snapshot.game_mode_code = game.game_mode");
+    expect(automaticWinAchievements).toContain("PERFORM private.assert_game_mode_automation_ready(p_game_mode)");
+  });
+
+  it("keeps explicit revocations suppressed and protects mapped achievements", () => {
+    expect(automaticWinAchievements).toContain("CREATE TABLE app.automatic_achievement_suppressions");
+    expect(automaticWinAchievements).toContain("revocation_source = 'MANUAL'");
+    expect(automaticWinAchievements).toContain("CONSTRAINT = 'achievement_in_use'");
+    expect(automaticWinAchievements).toContain("REVOKE INSERT, UPDATE, DELETE ON app.pod_player_achievements FROM authenticated");
   });
 });

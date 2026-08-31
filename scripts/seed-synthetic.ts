@@ -51,6 +51,7 @@ const participantRows = gameRows.flatMap((game, gameIndex) => Array.from({ lengt
     deckNameSnapshot: selectedDeck.name,
     bracketSnapshot: selectedDeck.bracket,
     powerLevelSnapshot: selectedDeck.powerLevel,
+    isWinner: game.resultKind === "WIN" && game.winnerPlayerId === playerId(ownerIndex),
   };
 }));
 

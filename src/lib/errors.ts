@@ -5,6 +5,7 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "CONFLICT"
+  | "ACHIEVEMENT_IN_USE"
   | "VALIDATION_ERROR"
   | "DATABASE_UNAVAILABLE"
   | "RATE_LIMITED"
@@ -37,13 +38,16 @@ export function toAppError(error: unknown): AppError {
     databaseCandidate = "cause" in databaseCandidate ? (databaseCandidate as { cause?: unknown }).cause : undefined;
   }
   if (databaseCandidate && typeof databaseCandidate === "object" && "code" in databaseCandidate) {
-    const databaseError = databaseCandidate as { code?: string; message?: string };
+    const databaseError = databaseCandidate as { code?: string; message?: string; constraint?: string };
     if (databaseError.code === "42501") return new AppError(403, "FORBIDDEN", "The database denied this action.");
     if (["23514", "22P02", "22023"].includes(databaseError.code ?? "")) {
       return new AppError(422, "VALIDATION_ERROR", databaseError.message ?? "The data is invalid.");
     }
     if (["23505", "40001"].includes(databaseError.code ?? "")) {
       return new AppError(409, "CONFLICT", databaseError.message ?? "The change conflicts with current data.");
+    }
+    if (databaseError.code === "23503" && databaseError.constraint === "achievement_in_use") {
+      return new AppError(409, "ACHIEVEMENT_IN_USE", "Reassign this achievement from the active game mode before archiving or deleting it.");
     }
   }
   return new AppError(500, "INTERNAL_ERROR", "An unexpected error occurred.");
