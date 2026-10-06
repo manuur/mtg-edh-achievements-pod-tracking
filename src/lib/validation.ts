@@ -23,13 +23,14 @@ export const commanderBracketSchema = z.union([
 ]);
 export const themePreferenceSchema = z.enum(THEME_PREFERENCES);
 export const mtgColorSchema = z.enum(MTG_COLORS);
-export const colorIdentitySchema = z.array(mtgColorSchema).max(5).nullable().optional().default(null)
+const colorIdentityValueSchema = z.array(mtgColorSchema).max(5).nullable()
   .superRefine((colors, context) => {
     if (colors && new Set(colors).size !== colors.length) {
       context.addIssue({ code: "custom", message: "Color identity cannot contain duplicate colors." });
     }
   })
   .transform((colors) => colors === null ? null : canonicalColorIdentity(colors));
+export const colorIdentitySchema = colorIdentityValueSchema.optional().default(null);
 
 const optionalMoxfieldUrl = z
   .union([z.literal(""), z.url({ protocol: /^https$/ })])
@@ -86,6 +87,12 @@ export const createDeckSchema = z.object({
 });
 
 export const updateDeckSchema = createDeckSchema.omit({ ownerPlayerId: true }).partial().extend({
+  powerLevel: createDeckSchema.shape.powerLevel.removeDefault().optional(),
+  commanderCmc: createDeckSchema.shape.commanderCmc.removeDefault().optional(),
+  colorIdentity: colorIdentityValueSchema.optional(),
+  hasPartnerCommanders: createDeckSchema.shape.hasPartnerCommanders.removeDefault().optional(),
+  hasCompanion: createDeckSchema.shape.hasCompanion.removeDefault().optional(),
+  hasBackground: createDeckSchema.shape.hasBackground.removeDefault().optional(),
   version: z.number().int().positive(),
   archived: z.boolean().optional(),
 });
@@ -273,6 +280,9 @@ export const reorderAchievementsSchema = z.object({
 });
 
 export const updateAchievementSchema = achievementSchema.partial().extend({
+  description: achievementFieldsSchema.shape.description.removeDefault().optional(),
+  displayOrder: achievementFieldsSchema.shape.displayOrder.removeDefault().optional(),
+  gameFactRules: achievementSchema.shape.gameFactRules.removeDefault().optional(),
   version: z.number().int().positive(),
   archived: z.boolean().optional(),
 });

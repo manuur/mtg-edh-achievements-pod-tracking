@@ -15,6 +15,20 @@
 
 Every change must pass `pnpm check`. Database migrations use expand/contract changes and must remain compatible with the currently deployed application during rollout.
 
+For configurable achievement automation, apply migrations `0012` and `0013` to development/staging before deploying the updated app:
+
+```powershell
+corepack pnpm install --frozen-lockfile
+corepack pnpm db:migrate
+corepack pnpm db:verify
+```
+
+Use the target environment's existing database configuration. The migration runner commits each version separately, so the `GAME_FACT` enum extension in `0012` is committed before `0013` uses it. Each version and its history entry are atomic. Run only one migration job per database at a time.
+
+After deployment, open `/admin/achievements`, edit an achievement, enable **Automatic granting**, and add conditions. Use **Add AND condition** for facts that must all match and **Add OR rule** for alternatives. The rule preview describes the configuration. Existing achievements have no configurable rules until you add them. No historical games are backfilled; save a new game to test the new configuration. Configure Partner, Companion, and Background checkboxes on the deck before recording that game.
+
+The full test suite uses an isolated in-memory PostgreSQL engine for migration, RLS, and award/reconciliation tests. It requires no Neon credentials and never changes the configured database. `db:verify` checks the installed Neon schema and privileges; it does not replace a release smoke test through the actual Data API.
+
 ## Backups
 
 The scheduled workflow creates an AES-256 encrypted logical dump and uploads it to private R2. Configure `PRODUCTION_DATABASE_URL`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `BACKUP_ENCRYPTION_PASSPHRASE`, and the `R2_BUCKET` repository variable. The job retains seven daily, four weekly, and six monthly restore points.
@@ -31,6 +45,8 @@ Run the manual restore-drill workflow against an empty disposable Neon branch ev
 6. Record a role-mode win and confirm each winner receives only the achievement matching their saved role, attributed as “Automatically awarded.” Edit and archive the game and confirm only automatic grants reconcile.
 7. Confirm a non-member receives 403/404 for the POD API and cannot access `private` through the Data API.
 8. Trigger one encrypted backup and restore it into a disposable branch.
+9. Configure an achievement with CMC plus player-count conditions, record a qualifying win, and confirm a single automatic grant with the game's earned date. Correct the winner, archive, and restore the game. Confirm older snapshots continue to use their saved rules after you edit the achievement.
+10. Replace an occupied mode/role mapping from Achievement Admin, check the confirmation names, and confirm the replacement appears in Game Mode Admin. An outdated version must return 409 without overwriting another edit.
 
 ## Incidents
 

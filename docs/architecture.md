@@ -12,6 +12,7 @@ EDH Pod Tracker is a private, multi-tenant application where a POD is the tenant
 - PostgreSQL constraints and row-level policies are the final data-integrity boundary; route handlers add request validation and friendly errors.
 - The application is a modular monolith split into identity, POD, deck, game-mode catalog, game, achievement, and metrics modules.
 - Historical facts are preserved through archival and game-time snapshots, including deck metadata and the achievement automation rules in force when a game was created.
+- Achievement automation uses a typed parent rule with normalized `GAME_MODE_WIN` or `GAME_FACT` subtype tables. Only validated condition payloads use JSON. Immutable game snapshots capture every active configurable rule at creation; PostgreSQL evaluates winning participants and reconciles grants in the game transaction. Authenticated roles have read-only rule access and cannot forge snapshots or automatic grants. Achievement and rule changes use Superadmin-checked, server-only transactional helpers.
 
 Neon compute may scale to zero. All database access must tolerate a cold first request and reconnect without session assumptions.
 

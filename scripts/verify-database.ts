@@ -68,6 +68,26 @@ const [state] = await sql`
     to_regclass('app.game_modes') is not null as game_mode_catalog_ready,
     to_regclass('app.achievement_automation_rules') is not null as achievement_rule_catalog_ready,
     to_regclass('app.game_achievement_rule_snapshots') is not null as achievement_rule_snapshots_ready,
+    to_regclass('app.achievement_game_fact_rules') is not null
+      and to_regclass('app.achievement_game_fact_conditions') is not null
+      and to_regclass('app.game_fact_rule_snapshots') is not null
+      and to_regprocedure('private.validate_game_fact_conditions(jsonb)') is not null
+      and to_regprocedure('private.automatic_achievement_snapshot_matches(uuid,uuid)') is not null
+      as configurable_achievement_rules_ready,
+    (select count(*) from information_schema.columns
+      where table_schema = 'app' and table_name = 'decks'
+        and column_name in ('has_partner_commanders', 'has_companion', 'has_background')
+        and is_nullable = 'NO' and data_type = 'boolean') = 3 as deck_traits_ready,
+    (select count(*) from information_schema.columns
+      where table_schema = 'app' and table_name = 'game_participants'
+        and column_name in ('has_partner_commanders_snapshot', 'has_companion_snapshot', 'has_background_snapshot')
+        and is_nullable = 'NO' and data_type = 'boolean') = 3 as snapshot_deck_traits_ready,
+    has_table_privilege('authenticated', 'api.achievement_game_fact_rules', 'SELECT')
+      and not has_table_privilege('authenticated', 'app.achievement_game_fact_conditions', 'UPDATE')
+      and not has_table_privilege('authenticated', 'app.game_fact_rule_snapshots', 'INSERT')
+      and not has_function_privilege('authenticated', 'private.set_achievement_game_fact_rules(uuid,uuid,jsonb)', 'EXECUTE')
+      and not has_function_privilege('authenticated', 'private.update_achievement_with_rules(uuid,uuid,text,text,text,text,integer,timestamptz,integer,jsonb)', 'EXECUTE')
+      as configurable_rules_read_only,
     exists (
       select 1 from information_schema.columns
       where table_schema = 'app' and table_name = 'game_achievement_rule_snapshots'
@@ -114,6 +134,10 @@ if (
   || !state?.game_mode_catalog_ready
   || !state?.achievement_rule_catalog_ready
   || !state?.achievement_rule_snapshots_ready
+  || !state?.configurable_achievement_rules_ready
+  || !state?.deck_traits_ready
+  || !state?.snapshot_deck_traits_ready
+  || !state?.configurable_rules_read_only
   || !state?.achievement_rule_snapshot_mode_ready
   || !state?.automatic_grants_private
   || !state?.game_mode_fk_ready
@@ -124,10 +148,10 @@ if (
   || !state?.auth_user_delete_ready
   || !state?.player_purge_private
   || !state?.achievement_purge_private
-  || Number(state?.rls_table_count) < 15
+  || Number(state?.rls_table_count) < 18
   || !claimEmailConstraint.includes("[.]")
   || !moxfieldConstraint.includes("moxfield[.]com")
 ) {
   throw new Error(`Database verification failed: ${JSON.stringify(state)}`);
 }
-console.log("Database schema, automatic role-aware achievements, Commander metadata snapshots, catalog-managed game modes, multi-mode games, ordered achievement categories, persisted theme preferences, validation constraints, transactional APIs, Superadmin purge functions, and RLS are installed.");
+console.log("Database schema, configurable winner achievement rules, automatic role-aware achievements, Commander metadata and deck-trait snapshots, catalog-managed game modes, multi-mode games, ordered achievement categories, persisted theme preferences, validation constraints, transactional APIs, Superadmin purge functions, and RLS are installed.");

@@ -38,7 +38,7 @@ describe("new game participant defaults", () => {
     expect(screen.getByRole("button", { name: /Free-for-all/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Every player fights independently. Choose one winner, or record a draw.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Configure table/ }));
-    const playerCheckboxes = screen.getAllByRole("checkbox");
+    const playerCheckboxes = screen.getAllByRole("checkbox", { name: /Player \d/ });
     expect(playerCheckboxes).toHaveLength(members.length);
     for (const checkbox of playerCheckboxes) expect(checkbox).toBeChecked();
   });

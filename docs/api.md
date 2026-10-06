@@ -29,6 +29,28 @@ Game-mode create/update responses and mutations include `winAchievementRules: { 
 
 Deck create/update bodies include nullable integer `commanderCmc` and nullable `colorIdentity`. Color identity is a canonical subset of `W`, `U`, `B`, `R`, and `G`; `null` means unknown while `[]` means explicitly colorless. Game participant responses expose immutable `commanderCmc` and `colorIdentity` snapshots.
 
+Deck requests and participant responses also expose `hasPartnerCommanders`, `hasCompanion`, and `hasBackground`. New decks default each flag to `false`; partial updates preserve omitted values. Game requests cannot supply these snapshots or automatic grants.
+
+Achievement Admin create/update requests and responses include `gameFactRules` (default `[]` on creation; omitted on PATCH means preserve existing rules). Each rule has `recipient: "WINNER"` and 1–10 typed `conditions`. Conditions in a rule are AND; up to ten rules are OR. For example:
+
+```json
+{
+  "gameFactRules": [
+    {
+      "recipient": "WINNER",
+      "conditions": [
+        { "fact": "COMMANDER_CMC", "operator": "EQ", "value": 3 },
+        { "fact": "PLAYER_COUNT", "operator": "EQ", "value": 4 }
+      ]
+    }
+  ]
+}
+```
+
+Supported facts are `GAME_MODE`, `PLAYER_COUNT`, `MONARCHY_BANDIT_RULE`, `WINNER_SEAT`, `WINNER_ROLE`, `DECK_BRACKET`, `DECK_POWER_LEVEL`, `COMMANDER_CMC`, `COLOR_IDENTITY`, `COLOR_COUNT`, `HAS_PARTNER_COMMANDERS`, `HAS_COMPANION`, and `HAS_BACKGROUND`. Numeric operators are `EQ`, `NEQ`, `LT`, `LTE`, `GT`, `GTE`, and inclusive `BETWEEN` with `[minimum, maximum]`. Mode and Bandit-rule facts accept `EQ`/`NEQ`; role facts also accept `IS_KNOWN`/`IS_UNKNOWN`. Nullable numeric facts accept known/unknown operators. Color operators are `EXACTLY`, `CONTAINS_ALL`, `CONTAINS_ANY`, `EXCLUDES_ALL`, `IS_COLORLESS`, `IS_KNOWN`, and `IS_UNKNOWN`. Boolean flags accept `EQ`/`NEQ` with a boolean value. Known/unknown/colorless operators omit `value`. Invalid combinations return 422.
+
+The Achievement Admin mapping panel submits full, versioned mutations to the existing `/admin/game-modes/{code}` endpoint. It shares the same records as Game Mode Admin. Occupied slot replacements require UI confirmation and required role slots are saved together. CSV import remains unchanged and creates no configurable rules. All Achievement Admin endpoints, including catalog reads, require Superadmin access.
+
 ## Routes
 
 - `GET|POST /pods`; `GET|PATCH|DELETE /pods/{podId}`

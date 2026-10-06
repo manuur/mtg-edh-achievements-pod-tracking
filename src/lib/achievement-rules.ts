@@ -2,6 +2,7 @@ import { canonicalColorIdentity, MTG_COLORS, type MtgColor } from "@/lib/deck-me
 import { GAME_PARTICIPANT_ROLES, MONARCHY_BANDIT_RULES } from "@/lib/game-modes";
 
 export const ACHIEVEMENT_RULE_RECIPIENTS = ["WINNER"] as const;
+export type AchievementAutomationRuleType = "GAME_MODE_WIN" | "GAME_FACT";
 export type AchievementRuleRecipient = (typeof ACHIEVEMENT_RULE_RECIPIENTS)[number];
 
 export const GAME_FACT_KEYS = [
@@ -105,6 +106,7 @@ export function operatorsForFact(fact: GameFactKey): GameFactOperator[] {
   if (definition.kind === "NUMBER") return [...numericOperators, ...(definition.nullable ? nullableOperators : [])];
   if (definition.kind === "COLORS") return ["EXACTLY", "CONTAINS_ALL", "CONTAINS_ANY", "EXCLUDES_ALL", "IS_COLORLESS", ...nullableOperators];
   if (definition.kind === "BOOLEAN") return ["EQ", "NEQ"];
+  if (definition.kind === "MONARCHY_RULE") return ["EQ", "NEQ"];
   return ["EQ", "NEQ", ...(definition.nullable ? nullableOperators : [])];
 }
 
@@ -130,7 +132,7 @@ export function validateCondition(condition: AchievementGameFactCondition): stri
     }
     const numericValues = values as number[];
     if (definition.integer && numericValues.some((value) => !Number.isInteger(value))) return `${definition.shortLabel} requires whole numbers.`;
-    if (!definition.integer && numericValues.some((value) => Math.abs(value * 100 - Math.round(value * 100)) > Number.EPSILON)) return `${definition.shortLabel} supports at most two decimal places.`;
+    if (!definition.integer && numericValues.some((value) => Math.abs(value * 100 - Math.round(value * 100)) > 1e-8)) return `${definition.shortLabel} supports at most two decimal places.`;
     if (definition.min !== undefined && numericValues.some((value) => value < definition.min!)) return `${definition.shortLabel} cannot be below ${definition.min}.`;
     if (definition.max !== undefined && numericValues.some((value) => value > definition.max!)) return `${definition.shortLabel} cannot be above ${definition.max}.`;
     if (condition.operator === "BETWEEN" && numericValues[0] > numericValues[1]) return "The lower bound cannot exceed the upper bound.";

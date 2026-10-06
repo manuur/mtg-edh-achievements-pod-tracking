@@ -39,6 +39,7 @@ export type CatalogAchievement = {
   archivedAt: Date | string | null;
   version: number;
   gameFactRules?: AchievementGameFactRule[];
+  automaticRuleCount?: number;
 };
 
 export type AchievementCategory = {
@@ -75,8 +76,9 @@ export function AchievementCatalogManager({ achievements, categories, gameModes 
     category,
     achievements: catalog
       .filter((achievement) => achievement.category === category.name)
+      .map((achievement) => ({ ...achievement, automaticRuleCount: (achievement.gameFactRules?.length ?? 0) + modeCatalog.reduce((count, mode) => count + mode.winAchievementRules.filter((rule) => rule.achievementId === achievement.id).length, 0) }))
       .sort((left, right) => left.displayOrder - right.displayOrder || left.name.localeCompare(right.name)),
-  })), [catalog, categoryList]);
+  })), [catalog, categoryList, modeCatalog]);
 
   function beginEditing(achievement: CatalogAchievement) {
     setEditing(achievement);
@@ -172,7 +174,7 @@ export function AchievementCatalogManager({ achievements, categories, gameModes 
           items: reordered.map(({ id, version }) => ({ id, version })),
         }),
       });
-      setCatalog([...otherAchievements, ...updated]);
+      setCatalog([...otherAchievements, ...updated.map((achievement) => ({ ...achievement, gameFactRules: previous.find((candidate) => candidate.id === achievement.id)?.gameFactRules ?? [] }))]);
     } catch (cause) {
       setCatalog(previous);
       setError(message(cause, `Could not reorder ${category.name}.`));
@@ -309,7 +311,7 @@ function SortableAchievementRow({ achievement, pending, onEdit, onArchive, onDel
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: achievement.id, disabled: pending });
   return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={`flex min-w-0 items-start gap-2 p-4 sm:gap-3 sm:p-5 ${isDragging ? "relative z-10 bg-stone-950 opacity-70 shadow-xl" : ""}`}>
     <DragHandle label={`Move ${achievement.name}`} disabled={pending} attributes={attributes} listeners={listeners} />
-    <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h4 className="min-w-0 break-words font-semibold">{achievement.name}</h4>{achievement.archivedAt && <Badge>Archived</Badge>}{(achievement.gameFactRules?.length ?? 0) > 0 && <Badge><Sparkles className="size-3" />Automatic · {achievement.gameFactRules?.length}</Badge>}</div><p className="mt-1 break-words text-sm text-stone-500">{achievement.description || "No description"}</p><code className="mt-2 block break-all text-[11px] text-stone-600">{achievement.code}</code></div>
+    <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h4 className="min-w-0 break-words font-semibold">{achievement.name}</h4>{achievement.archivedAt && <Badge>Archived</Badge>}{(achievement.automaticRuleCount ?? 0) > 0 && <Badge><Sparkles className="size-3" />Automatic · {achievement.automaticRuleCount}</Badge>}</div><p className="mt-1 break-words text-sm text-stone-500">{achievement.description || "No description"}</p><code className="mt-2 block break-all text-[11px] text-stone-600">{achievement.code}</code></div>
     <div className="flex shrink-0 flex-col gap-1 sm:flex-row"><button type="button" disabled={pending} onClick={() => onEdit(achievement)} aria-label={`Edit ${achievement.name}`} className="grid size-9 place-items-center rounded-lg text-stone-500 hover:bg-white/7 hover:text-white"><Pencil className="size-4" /></button><button type="button" disabled={pending} onClick={() => onArchive(achievement)} aria-label={`${achievement.archivedAt ? "Restore" : "Archive"} ${achievement.name}`} className="grid size-9 place-items-center rounded-lg text-stone-500 hover:bg-white/7 hover:text-white">{achievement.archivedAt ? <RotateCcw className="size-4" /> : <Archive className="size-4" />}</button><button type="button" disabled={pending} onClick={() => onDelete(achievement)} aria-label={`Permanently delete ${achievement.name}`} className="grid size-9 place-items-center rounded-lg text-stone-500 hover:bg-red-400/10 hover:text-red-300"><Trash2 className="size-4" /></button></div>
   </div>;
 }
@@ -362,6 +364,9 @@ function AchievementModeMappings({ achievements, gameModes, pending, setPending,
 }) {
   const [selections, setSelections] = useState<Record<string, Record<string, string>>>(() => Object.fromEntries(gameModes.map((mode) => [mode.code, selectionForMode(mode)])));
   const activeAchievements = achievements.filter((achievement) => !achievement.archivedAt);
+  const achievementGroups = [...new Set(activeAchievements.map((achievement) => achievement.category))].map((category) => ({
+    category, achievements: activeAchievements.filter((achievement) => achievement.category === category),
+  }));
 
   async function saveMode(mode: GameModeCatalogItem) {
     const slots = slotsForMode(mode);
@@ -374,7 +379,13 @@ function AchievementModeMappings({ achievements, gameModes, pending, setPending,
       const current = mode.winAchievementRules.find((rule) => (rule.winnerRole ?? "GENERAL") === slot.key)?.achievementId ?? "";
       return current && nextSelection[slot.key] !== current;
     });
-    if (replacements.length && !window.confirm(`${mode.name} already has ${replacements.length === 1 ? "an occupied achievement slot" : `${replacements.length} occupied achievement slots`}. Replace ${replacements.length === 1 ? "it" : "them"}? Existing games keep their saved rules.`)) return;
+    const replacementDetails = replacements.map((slot) => {
+      const currentId = mode.winAchievementRules.find((rule) => (rule.winnerRole ?? "GENERAL") === slot.key)?.achievementId;
+      const currentName = achievements.find((achievement) => achievement.id === currentId)?.name ?? "Current achievement";
+      const nextName = achievements.find((achievement) => achievement.id === nextSelection[slot.key])?.name ?? "No achievement";
+      return `${slot.label}: ${currentName} → ${nextName}`;
+    }).join("\n");
+    if (replacements.length && !window.confirm(`Replace ${mode.name} mappings?\n${replacementDetails}\nExisting games keep their saved rules.`)) return;
 
     setPending(true); setError(undefined);
     try {
@@ -408,7 +419,7 @@ function AchievementModeMappings({ achievements, gameModes, pending, setPending,
         return <details key={mode.code} className="rounded-xl border border-white/8 bg-black/10 p-3">
           <summary className="cursor-pointer text-sm font-semibold text-stone-200">{mode.name}{mode.archivedAt ? " · Archived" : ""}</summary>
           <div className="mt-3 grid gap-3">
-            {slots.map((slot) => <Field key={slot.key} label={`${slot.label}${slot.required ? " · required" : " · optional"}`}><select value={selections[mode.code]?.[slot.key] ?? ""} disabled={pending} onChange={(event) => setSelections((current) => ({ ...current, [mode.code]: { ...current[mode.code], [slot.key]: event.target.value } }))} className={inputClass}><option value="">{slot.required ? "Choose achievement" : "No automatic mode achievement"}</option>{activeAchievements.map((achievement) => <option key={achievement.id} value={achievement.id}>{achievement.category} · {achievement.name}</option>)}</select></Field>)}
+            {slots.map((slot) => <Field key={slot.key} label={`${slot.label}${slot.required ? " · required" : " · optional"}`}><select value={selections[mode.code]?.[slot.key] ?? ""} disabled={pending} onChange={(event) => setSelections((current) => ({ ...current, [mode.code]: { ...current[mode.code], [slot.key]: event.target.value } }))} className={inputClass}><option value="">{slot.required ? "Choose achievement" : "No automatic mode achievement"}</option>{achievementGroups.map((group) => <optgroup key={group.category} label={group.category}>{group.achievements.map((achievement) => <option key={achievement.id} value={achievement.id}>{achievement.name}</option>)}</optgroup>)}</select></Field>)}
             <Button type="button" variant="secondary" disabled={pending} onClick={() => void saveMode(mode)}>Save {mode.name} mappings</Button>
           </div>
         </details>;

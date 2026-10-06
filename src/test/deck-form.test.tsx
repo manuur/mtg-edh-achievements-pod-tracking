@@ -40,6 +40,9 @@ describe("deck form", () => {
           powerLevel: null,
           commanderCmc: null,
           colorIdentity: null,
+          hasPartnerCommanders: false,
+          hasCompanion: false,
+          hasBackground: false,
           moxfieldUrl: "",
         }),
       }),
@@ -62,5 +65,19 @@ describe("deck form", () => {
     await userEvent.click(screen.getByLabelText("Colorless"));
     await userEvent.click(screen.getByRole("button", { name: "Add deck" }));
     await waitFor(() => expect(JSON.parse(apiRequest.mock.calls[0][1].body)).toMatchObject({ commanderCmc: 5, colorIdentity: [] }));
+  });
+
+  it("submits manually declared Partner, Companion, and Background flags", async () => {
+    apiRequest.mockResolvedValue({ id: "new-deck" });
+    render(<DeckForm ownerPlayerId="10000000-0000-4000-8000-000000000001" />);
+    await userEvent.type(screen.getByLabelText("Deck name"), "Partners");
+    for (const label of ["Partner commanders", "Companion", "Background"]) {
+      expect(screen.getByRole("checkbox", { name: label })).not.toBeChecked();
+      await userEvent.click(screen.getByRole("checkbox", { name: label }));
+    }
+    await userEvent.click(screen.getByRole("button", { name: "Add deck" }));
+    await waitFor(() => expect(JSON.parse(apiRequest.mock.calls[0][1].body)).toMatchObject({
+      hasPartnerCommanders: true, hasCompanion: true, hasBackground: true,
+    }));
   });
 });

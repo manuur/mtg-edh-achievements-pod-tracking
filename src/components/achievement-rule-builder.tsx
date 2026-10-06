@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Plus, Trash2, WandSparkles } from "lucide-react";
+import { useState } from "react";
 import { Badge, Button, Field, inputClass } from "@/components/ui";
 import {
   GAME_FACT_DEFINITIONS,
@@ -47,8 +48,8 @@ export function AchievementRuleBuilder({ rules, gameModes, onChange, disabled = 
     onChange(next);
   }
 
-  return <section className="grid gap-4 rounded-2xl border border-violet-300/15 bg-violet-300/5 p-4" aria-labelledby="automatic-granting-heading">
-    <div className="flex items-start justify-between gap-3">
+  return <section className="grid min-w-0 gap-4 rounded-2xl border border-violet-300/15 bg-violet-300/5 p-4 [&_label]:min-w-0 [&_select]:min-w-0" aria-labelledby="automatic-granting-heading">
+    <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2"><WandSparkles className="size-4 text-violet-200" /><h3 id="automatic-granting-heading" className="font-semibold text-stone-100">Automatic granting</h3>{enabled && <Badge>{rules.length} OR {rules.length === 1 ? "rule" : "rules"}</Badge>}</div>
         <p className="mt-1 text-xs leading-5 text-stone-500">Every winner is checked independently. All conditions in a card must match; any card can award the achievement.</p>
@@ -60,7 +61,7 @@ export function AchievementRuleBuilder({ rules, gameModes, onChange, disabled = 
     </div>
 
     {enabled && <div className="grid gap-4">
-      {rules.map((rule, ruleIndex) => <div key={ruleIndex} className="grid gap-3 rounded-xl border border-white/8 bg-black/15 p-3 sm:p-4">
+      {rules.map((rule, ruleIndex) => <div key={ruleIndex} role="group" aria-label={`Automatic rule ${ruleIndex + 1}`} className="grid min-w-0 gap-3 rounded-xl border border-white/8 bg-black/15 p-3 sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-semibold text-violet-100">Award winner when all conditions match</p>
           <div className="flex gap-1">
@@ -122,8 +123,8 @@ function ConditionEditor({ condition, gameModes, disabled, onChange, onRemove, o
     onChange({ fact: condition.fact, operator, ...(conditionNeedsValue(operator) && { value: defaultValue(condition.fact, operator, gameModes, condition.value) }) });
   }
 
-  return <div className="grid gap-2 rounded-xl border border-white/7 bg-white/3 p-3">
-    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+  return <div role="group" aria-label={`${definition.shortLabel} condition`} className="grid min-w-0 gap-2 rounded-xl border border-white/7 bg-white/3 p-3">
+    <div className="grid min-w-0 gap-2">
       <Field label="Fact"><select value={condition.fact} disabled={disabled} onChange={(event) => changeFact(event.target.value as GameFactKey)} className={inputClass}>{GAME_FACT_KEYS.map((fact) => <option key={fact} value={fact}>{GAME_FACT_DEFINITIONS[fact].label}</option>)}</select></Field>
       <Field label="Operator"><select value={condition.operator} disabled={disabled} onChange={(event) => changeOperator(event.target.value as GameFactOperator)} className={inputClass}>{operators.map((operator) => <option key={operator} value={operator}>{OPERATOR_LABELS[operator]}</option>)}</select></Field>
       <div className="flex items-end gap-1">
@@ -148,20 +149,38 @@ function ConditionValue({ condition, gameModes, onChange, disabled }: {
     const step = definition.integer ? 1 : 0.01;
     if (condition.operator === "BETWEEN") {
       const value = Array.isArray(condition.value) ? condition.value as [number, number] : [definition.min ?? 0, definition.min ?? 0];
-      return <div className="grid grid-cols-2 gap-2"><Field label="Minimum"><input type="number" value={value[0]} min={definition.min} max={definition.max} step={step} disabled={disabled} onChange={(event) => onChange([Number(event.target.value), value[1]])} className={inputClass} /></Field><Field label="Maximum"><input type="number" value={value[1]} min={definition.min} max={definition.max} step={step} disabled={disabled} onChange={(event) => onChange([value[0], Number(event.target.value)])} className={inputClass} /></Field></div>;
+      return <div className="grid min-w-0 grid-cols-2 gap-2"><Field label="Minimum"><NumericRuleInput value={value[0]} min={definition.min} max={definition.max} step={step} disabled={disabled} onChange={(next) => onChange([next, value[1]])} /></Field><Field label="Maximum"><NumericRuleInput value={value[1]} min={definition.min} max={definition.max} step={step} disabled={disabled} onChange={(next) => onChange([value[0], next])} /></Field></div>;
     }
-    return <Field label="Value"><input type="number" value={typeof condition.value === "number" ? condition.value : definition.min ?? 0} min={definition.min} max={definition.max} step={step} disabled={disabled} onChange={(event) => onChange(Number(event.target.value))} className={inputClass} /></Field>;
+    return <Field label="Value"><NumericRuleInput value={typeof condition.value === "number" ? condition.value : definition.min ?? 0} min={definition.min} max={definition.max} step={step} disabled={disabled} onChange={onChange} /></Field>;
   }
   if (definition.kind === "GAME_MODE") return <Field label="Value"><select value={String(condition.value ?? gameModes[0]?.code ?? "FREE_FOR_ALL")} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={inputClass}>{gameModes.map((mode) => <option key={mode.code} value={mode.code}>{mode.name}{mode.archivedAt ? " (archived)" : ""}</option>)}</select></Field>;
   if (definition.kind === "MONARCHY_RULE") return <Field label="Value"><select value={String(condition.value ?? MONARCHY_BANDIT_RULES[0])} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={inputClass}>{MONARCHY_BANDIT_RULES.map((rule) => <option key={rule} value={rule}>{rule === "ALL_BANDITS" ? "All Bandits" : "Surviving Bandits"}</option>)}</select></Field>;
   if (definition.kind === "ROLE") return <Field label="Value"><select value={String(condition.value ?? GAME_PARTICIPANT_ROLES[0])} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={inputClass}>{GAME_PARTICIPANT_ROLES.map((role) => <option key={role} value={role}>{title(role)}</option>)}</select></Field>;
   if (definition.kind === "BOOLEAN") return <Field label="Value"><select value={String(condition.value ?? true)} disabled={disabled} onChange={(event) => onChange(event.target.value === "true")} className={inputClass}><option value="true">Yes</option><option value="false">No</option></select></Field>;
-  const colors = Array.isArray(condition.value) ? condition.value as MtgColor[] : ["W"];
-  return <fieldset><legend className="mb-2 text-sm font-medium text-stone-300">Colors</legend><div className="flex flex-wrap gap-2">{MTG_COLORS.map((color) => <label key={color} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-white/8 px-3 text-sm"><input type="checkbox" checked={colors.includes(color)} disabled={disabled} onChange={(event) => onChange(event.target.checked ? MTG_COLORS.filter((candidate) => [...colors, color].includes(candidate)) as MtgColor[] : colors.filter((candidate) => candidate !== color))} className="accent-amber-300" /><strong>{color}</strong><span className="text-stone-500">{MTG_COLOR_NAMES[color]}</span></label>)}</div></fieldset>;
+  const colors: MtgColor[] = Array.isArray(condition.value) ? condition.value as MtgColor[] : ["W"];
+  return <fieldset><legend className="mb-2 text-sm font-medium text-stone-300">Colors</legend><div className="flex flex-wrap gap-2">{MTG_COLORS.map((color) => <label key={color} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-white/8 px-3 text-sm"><input type="checkbox" aria-label={`${color} ${MTG_COLOR_NAMES[color]}`} checked={colors.includes(color)} disabled={disabled} onChange={(event) => onChange(event.target.checked ? MTG_COLORS.filter((candidate) => [...colors, color].includes(candidate)) as MtgColor[] : colors.filter((candidate) => candidate !== color))} className="accent-amber-300" /><strong>{color}</strong><span className="text-stone-500">{MTG_COLOR_NAMES[color]}</span></label>)}</div></fieldset>;
 }
 
 function defaultCondition(gameModes: RuleBuilderGameMode[]): AchievementGameFactCondition {
   return { ...DEFAULT_CONDITION, value: gameModes.find((mode) => !mode.archivedAt)?.code ?? gameModes[0]?.code ?? "FREE_FOR_ALL" };
+}
+
+function NumericRuleInput({ value, min, max, step, disabled, onChange }: {
+  value: number;
+  min?: number;
+  max?: number;
+  step: number;
+  disabled: boolean;
+  onChange: (value: number) => void;
+}) {
+  // Preserve decimal input such as "6." while the numeric rule value changes.
+  const [draft, setDraft] = useState({ value, text: String(value) });
+  return <input type="number" required value={Object.is(draft.value, value) ? draft.text : String(value)} min={min} max={max} step={step} disabled={disabled} onChange={(event) => {
+    const text = event.target.value;
+    const next = text.trim() ? Number(text) : Number.NaN;
+    setDraft({ value: next, text });
+    onChange(next);
+  }} className={`${inputClass} min-w-0`} />;
 }
 
 function defaultValue(fact: GameFactKey, operator: GameFactOperator, gameModes: RuleBuilderGameMode[], current?: AchievementConditionValue): AchievementConditionValue {

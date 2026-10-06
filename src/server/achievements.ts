@@ -27,13 +27,13 @@ export async function listCatalog(context: UserContext, includeArchived = false)
 
 export type AdminAchievement = Awaited<ReturnType<typeof listAdminAchievementCatalog>>[number];
 
-export async function listAdminAchievementCatalog(context: UserContext, includeArchived = true) {
+export async function listAdminAchievementCatalog(context: UserContext, includeArchived = true, achievementId?: string) {
   requireSuperuser(context);
   const db = getDb(context);
   const [catalog, ruleRows] = await Promise.all([
     db.select(getTableColumns(achievements)).from(achievements)
       .innerJoin(achievementCategories, eq(achievementCategories.name, achievements.category))
-      .where(includeArchived ? undefined : isNull(achievements.archivedAt))
+      .where(and(includeArchived ? undefined : isNull(achievements.archivedAt), achievementId ? eq(achievements.id, achievementId) : undefined))
       .orderBy(asc(achievementCategories.displayOrder), asc(achievements.displayOrder), asc(achievements.name)),
     db.select({
       achievementId: achievementAutomationRules.achievementId,
@@ -47,7 +47,7 @@ export async function listAdminAchievementCatalog(context: UserContext, includeA
     }).from(achievementAutomationRules)
       .innerJoin(achievementGameFactRules, eq(achievementGameFactRules.ruleId, achievementAutomationRules.id))
       .innerJoin(achievementGameFactConditions, eq(achievementGameFactConditions.ruleId, achievementGameFactRules.ruleId))
-      .where(and(eq(achievementAutomationRules.ruleType, "GAME_FACT"), isNull(achievementAutomationRules.archivedAt)))
+      .where(and(eq(achievementAutomationRules.ruleType, "GAME_FACT"), isNull(achievementAutomationRules.archivedAt), achievementId ? eq(achievementAutomationRules.achievementId, achievementId) : undefined))
       .orderBy(asc(achievementAutomationRules.achievementId), asc(achievementGameFactRules.displayOrder), asc(achievementGameFactConditions.displayOrder)),
   ]);
 
@@ -101,7 +101,7 @@ export async function createAchievement(context: UserContext, input: z.infer<typ
     )
   `);
   const created = result.rows[0];
-  if (!created) throw new AppError(500, "INTERNAL_ERROR", "The achievement could not be created.");
+  if (!created?.id) throw new AppError(500, "INTERNAL_ERROR", "The achievement could not be created.");
   return { ...created, gameFactRules: input.gameFactRules };
 }
 
@@ -109,7 +109,7 @@ export async function updateAchievement(context: UserContext, achievementId: str
   requireSuperuser(context);
   const db = getDb(context);
   if (input.archived === true) await assertAchievementNotUsedByActiveMode(achievementId);
-  const current = (await listAdminAchievementCatalog(context, true)).find((achievement) => achievement.id === achievementId);
+  const current = (await listAdminAchievementCatalog(context, true, achievementId))[0];
   if (!current) throw new AppError(404, "NOT_FOUND", "Achievement not found.");
   const rules = input.gameFactRules ?? current.gameFactRules;
   const result = await db.execute<typeof achievements.$inferSelect>(sql`
@@ -126,7 +126,7 @@ export async function updateAchievement(context: UserContext, achievementId: str
     )
   `);
   const updated = result.rows[0];
-  if (!updated) throw new AppError(409, "CONFLICT", "The achievement was changed by someone else.");
+  if (!updated?.id) throw new AppError(409, "CONFLICT", "The achievement was changed by someone else.");
   return { ...updated, gameFactRules: rules };
 }
 

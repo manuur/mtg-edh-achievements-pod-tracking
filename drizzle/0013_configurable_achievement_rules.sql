@@ -76,14 +76,8 @@ ALTER TABLE app.game_fact_rule_snapshots ENABLE ROW LEVEL SECURITY;
 CREATE POLICY achievement_game_fact_rules_read_authenticated ON app.achievement_game_fact_rules FOR SELECT
 USING (private.current_player_id() IS NOT NULL);
 --> statement-breakpoint
-CREATE POLICY achievement_game_fact_rules_superuser_write ON app.achievement_game_fact_rules FOR ALL
-USING (private.is_superuser()) WITH CHECK (private.is_superuser());
---> statement-breakpoint
 CREATE POLICY achievement_game_fact_conditions_read_authenticated ON app.achievement_game_fact_conditions FOR SELECT
 USING (private.current_player_id() IS NOT NULL);
---> statement-breakpoint
-CREATE POLICY achievement_game_fact_conditions_superuser_write ON app.achievement_game_fact_conditions FOR ALL
-USING (private.is_superuser()) WITH CHECK (private.is_superuser());
 --> statement-breakpoint
 CREATE POLICY game_fact_rule_snapshots_read_member ON app.game_fact_rule_snapshots FOR SELECT
 USING (EXISTS (
@@ -195,7 +189,7 @@ BEGIN
         RAISE EXCEPTION 'game mode requires equals or does not equal and a valid mode code' USING ERRCODE = '23514';
       END IF;
     ELSIF v_fact = 'MONARCHY_BANDIT_RULE' THEN
-      IF v_operator NOT IN ('EQ', 'NEQ', 'IS_KNOWN', 'IS_UNKNOWN')
+      IF v_operator NOT IN ('EQ', 'NEQ')
          OR (v_operator IN ('EQ', 'NEQ') AND (jsonb_typeof(v_value) IS DISTINCT FROM 'string' OR NOT (v_value#>>'{}') = ANY (ARRAY['ALL_BANDITS', 'SURVIVING_BANDITS']))) THEN
         RAISE EXCEPTION 'invalid Monarchy Bandit rule condition' USING ERRCODE = '23514';
       END IF;
@@ -414,15 +408,15 @@ END
 $$;
 --> statement-breakpoint
 CREATE OR REPLACE VIEW api.decks WITH (security_invoker = true) AS
-SELECT id, owner_player_id, name, bracket, power_level, commander_cmc, color_identity,
-  has_partner_commanders, has_companion, has_background, moxfield_url,
-  created_at, updated_at, archived_at, version
+SELECT id, owner_player_id, name, bracket, power_level, moxfield_url, created_at,
+  updated_at, archived_at, version, commander_cmc, color_identity,
+  has_partner_commanders, has_companion, has_background
 FROM app.decks;
 --> statement-breakpoint
 CREATE OR REPLACE VIEW api.game_participants WITH (security_invoker = true) AS
 SELECT game_id, player_id, deck_id, deck_name_snapshot, bracket_snapshot, power_level_snapshot,
-  commander_cmc_snapshot, color_identity_snapshot, has_partner_commanders_snapshot,
-  has_companion_snapshot, has_background_snapshot, seat_position, mode_role, is_winner
+  created_at, seat_position, mode_role, is_winner, commander_cmc_snapshot, color_identity_snapshot,
+  has_partner_commanders_snapshot, has_companion_snapshot, has_background_snapshot
 FROM app.game_participants;
 --> statement-breakpoint
 CREATE VIEW api.achievement_game_fact_rules WITH (security_invoker = true) AS
@@ -435,16 +429,6 @@ JOIN app.achievement_game_fact_conditions condition ON condition.rule_id = fact_
 WHERE parent_rule.rule_type = 'GAME_FACT' AND parent_rule.archived_at IS NULL;
 --> statement-breakpoint
 REVOKE ALL ON app.achievement_game_fact_rules, app.achievement_game_fact_conditions, app.game_fact_rule_snapshots FROM PUBLIC;
---> statement-breakpoint
-GRANT SELECT ON api.achievement_game_fact_rules TO authenticated;
---> statement-breakpoint
-REVOKE ALL ON FUNCTION private.create_achievement_with_rules(uuid, text, text, text, text, integer, jsonb) FROM PUBLIC;
---> statement-breakpoint
-REVOKE ALL ON FUNCTION private.update_achievement_with_rules(uuid, uuid, text, text, text, text, integer, timestamptz, integer, jsonb) FROM PUBLIC;
---> statement-breakpoint
-GRANT EXECUTE ON FUNCTION private.create_achievement_with_rules(uuid, text, text, text, text, integer, jsonb) TO authenticated;
---> statement-breakpoint
-GRANT EXECUTE ON FUNCTION private.update_achievement_with_rules(uuid, uuid, text, text, text, text, integer, timestamptz, integer, jsonb) TO authenticated;
 --> statement-breakpoint
 CREATE OR REPLACE FUNCTION private.automatic_achievement_snapshot_matches(
   p_snapshot_id uuid,
@@ -603,6 +587,8 @@ DECLARE
   v_grant record;
   v_candidate record;
 BEGIN
+  -- Serialize reconciliation within a POD so concurrent game saves agree on earliest evidence.
+  PERFORM 1 FROM app.pods WHERE id = p_pod_id FOR UPDATE;
   FOR v_grant IN
     SELECT * FROM app.pod_player_achievements grant_row
     WHERE grant_row.pod_id = p_pod_id
@@ -714,6 +700,10 @@ DECLARE
   v_rule_position integer := 0;
   v_condition_position integer;
 BEGIN
+  IF private.current_auth_user_id() IS NOT NULL
+     AND private.current_player_id() IS DISTINCT FROM p_actor_player_id THEN
+    RAISE EXCEPTION 'actor does not match authenticated user' USING ERRCODE = '42501';
+  END IF;
   IF NOT EXISTS (
     SELECT 1 FROM app.players player
     JOIN private.app_superuser superadmin ON superadmin.auth_user_id = player.auth_user_id
@@ -790,6 +780,26 @@ BEGIN
 END
 $$;
 --> statement-breakpoint
+REVOKE ALL ON FUNCTION private.validate_game_fact_conditions(jsonb) FROM PUBLIC;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION private.automatic_achievement_snapshot_matches(uuid, uuid) FROM PUBLIC;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION private.set_achievement_game_fact_rules(uuid, uuid, jsonb) FROM PUBLIC;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION private.create_achievement_with_rules(uuid, text, text, text, text, integer, jsonb) FROM PUBLIC;
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    GRANT SELECT ON app.achievement_game_fact_rules, app.achievement_game_fact_conditions,
+      app.game_fact_rule_snapshots, api.achievement_game_fact_rules TO authenticated;
+    REVOKE INSERT, UPDATE, DELETE ON app.achievement_game_fact_rules,
+      app.achievement_game_fact_conditions, app.game_fact_rule_snapshots,
+      app.achievement_automation_rules, app.game_achievement_rule_snapshots FROM authenticated;
+  END IF;
+END
+$$;
+--> statement-breakpoint
 CREATE OR REPLACE FUNCTION private.update_achievement_with_rules(
   p_actor_player_id uuid,
   p_achievement_id uuid,
@@ -835,3 +845,5 @@ BEGIN
   RETURN v_achievement;
 END
 $$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION private.update_achievement_with_rules(uuid, uuid, text, text, text, text, integer, timestamptz, integer, jsonb) FROM PUBLIC;
