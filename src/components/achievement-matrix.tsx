@@ -5,6 +5,7 @@ import { useLoadingRouter } from "@/lib/loading-router";
 import { Check, ChevronRight, LockKeyhole, X } from "lucide-react";
 import { ApiClientError, apiRequest } from "@/lib/client-api";
 import { Badge, Button, Card } from "@/components/ui";
+import { GAME_ROLE_LABELS, type GameParticipantRole } from "@/lib/game-modes";
 
 type Catalog = {
   id: string;
@@ -24,17 +25,19 @@ type Grant = {
   gameArchivedAt: Date | string | null;
   revokedAt: Date | string | null;
   version: number;
-  grantedByName: string;
+  grantedByName: string | null;
+  grantSource: "MANUAL" | "AUTOMATIC";
+  automaticWinnerRole: GameParticipantRole | null;
   notes: string;
 };
 
 type EligibleGame = {
   id: string;
   playedAt: Date | string;
+  gameMode: string;
+  gameModeName: string;
   resultKind: "WIN" | "DRAW";
-  winnerPlayerId: string | null;
-  winnerName: string | null;
-  winnerDeckName: string | null;
+  winners: { playerId: string; playerName: string; deckName: string }[];
   playerDeckName: string;
   participantCount: number;
   notes: string;
@@ -96,7 +99,10 @@ export function AchievementMatrix({
 
   function earnedDescription(grant: Grant) {
     const date = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone }).format(new Date(grant.earnedAt));
-    return `Earned ${date} · recorded by ${grant.grantedByName}${grant.notes ? ` · ${grant.notes}` : ""}`;
+    const attribution = grant.grantSource === "AUTOMATIC"
+      ? `Automatically awarded${grant.automaticWinnerRole ? ` for winning as ${GAME_ROLE_LABELS[grant.automaticWinnerRole]}` : ""}`
+      : `recorded by ${grant.grantedByName ?? "Unknown player"}`;
+    return `Earned ${date} · ${attribution}${grant.notes ? ` · ${grant.notes}` : ""}`;
   }
 
   function gameDescription(game: EligibleGame) {
@@ -109,14 +115,13 @@ export function AchievementMatrix({
       hourCycle: "h23",
       timeZone,
     }).format(new Date(game.playedAt));
-    const winner = game.winnerName ?? "Unknown";
     const result = game.resultKind === "DRAW"
       ? "Draw"
-      : `Winner: ${winner}${game.winnerDeckName ? ` (${game.winnerDeckName})` : ""}`;
-    const recipientDeck = targetPlayer && game.winnerPlayerId !== grantTarget?.playerId
+      : `${game.winners.length === 1 ? "Winner" : "Winners"}: ${game.winners.map((winner) => `${winner.playerName} (${winner.deckName})`).join(" & ")}`;
+    const recipientDeck = targetPlayer && !game.winners.some((winner) => winner.playerId === grantTarget?.playerId)
       ? ` · ${targetPlayer.displayName}: ${game.playerDeckName}`
       : "";
-    return `${date} · ${result}${recipientDeck} · ${game.participantCount} players${game.notes ? ` · ${game.notes}` : ""}`;
+    return `${date} · ${game.gameModeName} · ${result}${recipientDeck} · ${game.participantCount} players${game.notes ? ` · ${game.notes}` : ""}`;
   }
 
   function playerDeckNote(game?: EligibleGame) {

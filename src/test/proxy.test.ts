@@ -14,6 +14,7 @@ describe("authentication proxy matcher", () => {
     "/decks",
     "/players/00000000-0000-4000-8000-000000000001",
     "/admin/achievements",
+    "/admin/game-modes",
     "/admin/users",
     "/settings/profile",
   ])("runs for authenticated application route %s", (url) => {

@@ -10,11 +10,14 @@ const sql = neon(connectionString);
 const [state] = await sql`
   select
     to_regclass('app.players') is not null as schema_ready,
-    to_regprocedure('api.create_game(uuid,uuid,timestamp with time zone,app.game_result_kind,uuid,text,uuid,jsonb)') is not null as game_api_ready,
+    to_regprocedure('api.create_game(uuid,uuid,timestamp with time zone,text,app.monarchy_bandit_rule,app.game_result_kind,uuid[],text,uuid,jsonb)') is not null as game_api_ready,
+    to_regprocedure('private.validate_game_input(text,app.game_result_kind,app.monarchy_bandit_rule,uuid[],jsonb)') is not null as game_mode_validation_ready,
+    to_regprocedure('private.game_players_are_opponents(uuid,uuid,uuid)') is not null as opponent_rules_ready,
     to_regprocedure('api.add_pod_member(uuid,uuid,text,text,app.pod_role)') is not null as membership_api_ready,
     to_regprocedure('private.hard_delete_player(text,uuid,integer,text)') is not null as player_purge_ready,
     to_regprocedure('private.hard_delete_achievement(text,uuid,integer,text)') is not null as achievement_purge_ready,
     to_regprocedure('private.validate_achievement_game()') is not null as achievement_game_guard_ready,
+    to_regprocedure('private.reconcile_automatic_achievement_grants(uuid,uuid)') is not null as achievement_automation_ready,
     exists (
       select 1 from information_schema.columns
       where table_schema = 'app' and table_name = 'pod_player_achievements'
@@ -32,10 +35,70 @@ const [state] = await sql`
     ) as snapshot_power_optional,
     exists (
       select 1 from information_schema.columns
+      where table_schema = 'app' and table_name = 'decks'
+        and column_name = 'commander_cmc' and is_nullable = 'YES'
+    ) as deck_commander_cmc_ready,
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'app' and table_name = 'decks'
+        and column_name = 'color_identity' and is_nullable = 'YES'
+    ) as deck_color_identity_ready,
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'app' and table_name = 'game_participants'
+        and column_name = 'commander_cmc_snapshot' and is_nullable = 'YES'
+    ) as snapshot_commander_cmc_ready,
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'app' and table_name = 'game_participants'
+        and column_name = 'color_identity_snapshot' and is_nullable = 'YES'
+    ) as snapshot_color_identity_ready,
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'app' and table_name = 'game_participants'
+        and column_name = 'is_winner' and is_nullable = 'NO'
+    ) as participant_winners_ready,
+    exists (
+      select 1 from information_schema.columns
       where table_schema = 'app' and table_name = 'players'
         and column_name = 'theme_preference' and is_nullable = 'NO'
         and udt_schema = 'app' and udt_name = 'theme_preference'
     ) as persisted_theme_preference,
+    to_regclass('app.achievement_categories') is not null as achievement_categories_ready,
+    to_regclass('app.game_modes') is not null as game_mode_catalog_ready,
+    to_regclass('app.achievement_automation_rules') is not null as achievement_rule_catalog_ready,
+    to_regclass('app.game_achievement_rule_snapshots') is not null as achievement_rule_snapshots_ready,
+    to_regclass('app.achievement_game_fact_rules') is not null
+      and to_regclass('app.achievement_game_fact_conditions') is not null
+      and to_regclass('app.game_fact_rule_snapshots') is not null
+      and to_regprocedure('private.validate_game_fact_conditions(jsonb)') is not null
+      and to_regprocedure('private.automatic_achievement_snapshot_matches(uuid,uuid)') is not null
+      as configurable_achievement_rules_ready,
+    (select count(*) from information_schema.columns
+      where table_schema = 'app' and table_name = 'decks'
+        and column_name in ('has_partner_commanders', 'has_companion', 'has_background')
+        and is_nullable = 'NO' and data_type = 'boolean') = 3 as deck_traits_ready,
+    (select count(*) from information_schema.columns
+      where table_schema = 'app' and table_name = 'game_participants'
+        and column_name in ('has_partner_commanders_snapshot', 'has_companion_snapshot', 'has_background_snapshot')
+        and is_nullable = 'NO' and data_type = 'boolean') = 3 as snapshot_deck_traits_ready,
+    has_table_privilege('authenticated', 'api.achievement_game_fact_rules', 'SELECT')
+      and not has_table_privilege('authenticated', 'app.achievement_game_fact_conditions', 'UPDATE')
+      and not has_table_privilege('authenticated', 'app.game_fact_rule_snapshots', 'INSERT')
+      and not has_function_privilege('authenticated', 'private.set_achievement_game_fact_rules(uuid,uuid,jsonb)', 'EXECUTE')
+      and not has_function_privilege('authenticated', 'private.update_achievement_with_rules(uuid,uuid,text,text,text,text,integer,timestamptz,integer,jsonb)', 'EXECUTE')
+      as configurable_rules_read_only,
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'app' and table_name = 'game_achievement_rule_snapshots'
+        and column_name = 'game_mode_code' and is_nullable = 'NO'
+    ) as achievement_rule_snapshot_mode_ready,
+    not has_table_privilege('authenticated', 'app.game_achievement_rule_snapshots', 'INSERT')
+      and not has_table_privilege('authenticated', 'app.pod_player_achievements', 'INSERT')
+      as automatic_grants_private,
+    exists (select 1 from pg_constraint where conname = 'games_game_mode_fk') as game_mode_fk_ready,
+    (select count(*) from app.game_modes where archived_at is null) > 0 as active_game_mode_ready,
+    exists (select 1 from pg_constraint where conname = 'achievements_category_achievement_categories_name_fk') as achievement_category_fk_ready,
     exists (select 1 from pg_constraint where conname = 'pod_player_achievements_game_pod_fk') as achievement_game_pod_fk_ready,
     exists (select 1 from pg_constraint where conname = 'pod_player_achievements_game_player_fk') as achievement_game_player_fk_ready,
     has_table_privilege(current_user, 'neon_auth."user"', 'DELETE') as auth_user_delete_ready,
@@ -51,23 +114,44 @@ const moxfieldConstraint = String(state?.moxfield_constraint ?? "");
 if (
   !state?.schema_ready
   || !state?.game_api_ready
+  || !state?.game_mode_validation_ready
+  || !state?.opponent_rules_ready
   || !state?.membership_api_ready
   || !state?.player_purge_ready
   || !state?.achievement_purge_ready
   || !state?.achievement_game_guard_ready
+  || !state?.achievement_automation_ready
   || !state?.achievement_game_required
   || !state?.deck_power_optional
   || !state?.snapshot_power_optional
+  || !state?.deck_commander_cmc_ready
+  || !state?.deck_color_identity_ready
+  || !state?.snapshot_commander_cmc_ready
+  || !state?.snapshot_color_identity_ready
+  || !state?.participant_winners_ready
   || !state?.persisted_theme_preference
+  || !state?.achievement_categories_ready
+  || !state?.game_mode_catalog_ready
+  || !state?.achievement_rule_catalog_ready
+  || !state?.achievement_rule_snapshots_ready
+  || !state?.configurable_achievement_rules_ready
+  || !state?.deck_traits_ready
+  || !state?.snapshot_deck_traits_ready
+  || !state?.configurable_rules_read_only
+  || !state?.achievement_rule_snapshot_mode_ready
+  || !state?.automatic_grants_private
+  || !state?.game_mode_fk_ready
+  || !state?.active_game_mode_ready
+  || !state?.achievement_category_fk_ready
   || !state?.achievement_game_pod_fk_ready
   || !state?.achievement_game_player_fk_ready
   || !state?.auth_user_delete_ready
   || !state?.player_purge_private
   || !state?.achievement_purge_private
-  || Number(state?.rls_table_count) < 9
+  || Number(state?.rls_table_count) < 18
   || !claimEmailConstraint.includes("[.]")
   || !moxfieldConstraint.includes("moxfield[.]com")
 ) {
   throw new Error(`Database verification failed: ${JSON.stringify(state)}`);
 }
-console.log("Database schema, persisted theme preferences, optional deck power levels, validation constraints, game-backed achievement grants, transactional APIs, Superadmin purge functions, and RLS are installed.");
+console.log("Database schema, configurable winner achievement rules, automatic role-aware achievements, Commander metadata and deck-trait snapshots, catalog-managed game modes, multi-mode games, ordered achievement categories, persisted theme preferences, validation constraints, transactional APIs, Superadmin purge functions, and RLS are installed.");

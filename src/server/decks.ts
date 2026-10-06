@@ -72,6 +72,11 @@ export async function updateDeck(context: UserContext, deckId: string, input: z.
   const [updated] = await getDb(context).update(decks).set({
     ...(input.name !== undefined && { name: input.name }), ...(input.bracket !== undefined && { bracket: input.bracket }),
     ...(input.powerLevel !== undefined && { powerLevel: input.powerLevel }), ...(input.moxfieldUrl !== undefined && { moxfieldUrl: input.moxfieldUrl }),
+    ...(input.commanderCmc !== undefined && { commanderCmc: input.commanderCmc }),
+    ...(input.colorIdentity !== undefined && { colorIdentity: input.colorIdentity }),
+    ...(input.hasPartnerCommanders !== undefined && { hasPartnerCommanders: input.hasPartnerCommanders }),
+    ...(input.hasCompanion !== undefined && { hasCompanion: input.hasCompanion }),
+    ...(input.hasBackground !== undefined && { hasBackground: input.hasBackground }),
     ...(input.archived !== undefined && { archivedAt: input.archived ? new Date() : null }),
     updatedAt: new Date(), version: input.version + 1,
   }).where(and(eq(decks.id, deckId), eq(decks.version, input.version))).returning();

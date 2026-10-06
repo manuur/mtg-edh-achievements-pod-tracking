@@ -41,4 +41,11 @@ describe("application navigation", () => {
     expect(container.querySelector('a[href="/pods/30000000-0000-4000-8000-000000000002"]')).toHaveTextContent("Sunday Pod");
     expect(container.querySelector('a[href="/pods/new"]')).toHaveTextContent("Create POD");
   });
+
+  it("shows game-mode administration only to the Superadmin", () => {
+    const { container, rerender } = render(<AppNav context={context} pods={[]} />);
+    expect(container.querySelector('a[href="/admin/game-modes"]')).toBeNull();
+    rerender(<AppNav context={{ ...context, isSuperuser: true }} pods={[]} />);
+    expect(container.querySelector('a[href="/admin/game-modes"]')).toHaveTextContent("Game modes");
+  });
 });

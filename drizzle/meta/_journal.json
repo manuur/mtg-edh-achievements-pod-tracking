@@ -57,6 +57,48 @@
       "when": 1787882400000,
       "tag": "0007_clear_placeholder_power_levels",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788105600000,
+      "tag": "0008_ordered_achievement_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788134400000,
+      "tag": "0009_multi_mode_games",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788220800000,
+      "tag": "0010_admin_game_mode_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788307200000,
+      "tag": "0011_automatic_win_achievements_and_deck_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788393600000,
+      "tag": "0012_extend_achievement_automation_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788393601000,
+      "tag": "0013_configurable_achievement_rules",
+      "breakpoints": true
     }
   ]
 }

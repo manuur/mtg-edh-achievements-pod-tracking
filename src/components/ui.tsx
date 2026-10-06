@@ -43,7 +43,7 @@ export function Field({ label, error, children }: { label: ReactNode; error?: st
 export const inputClass = "h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3.5 text-sm text-white outline-none transition placeholder:text-stone-600 focus:border-amber-300/60 focus:ring-2 focus:ring-amber-300/10";
 
 export function PageHeader({ eyebrow, title, description, action }: { eyebrow?: string; title: string; description?: string; action?: ReactNode }) {
-  return <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div>{eyebrow && <p className="mb-2 text-xs font-bold tracking-[.2em] text-amber-300 uppercase">{eyebrow}</p>}<h1 className="font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">{title}</h1>{description && <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-400">{description}</p>}</div>{action}</div>;
+  return <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div className="min-w-0">{eyebrow && <p className="mb-2 text-xs font-bold tracking-[.2em] text-amber-300 uppercase">{eyebrow}</p>}<h1 className="font-display break-words text-3xl font-semibold tracking-tight text-white sm:text-4xl">{title}</h1>{description && <p className="mt-2 max-w-2xl break-words text-sm leading-6 text-stone-400">{description}</p>}</div>{action}</div>;
 }
 
 export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {

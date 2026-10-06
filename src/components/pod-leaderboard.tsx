@@ -42,14 +42,14 @@ export function PodLeaderboard({ leaders, achievementLeaders, podId }: {
   return <section aria-label="POD player leaderboard">
     <p className="text-xs font-bold tracking-[.16em] text-violet-300 uppercase">Leaderboard</p>
     <h2 className="font-display mt-1 text-2xl">Player rankings</h2>
-    <div role="tablist" aria-label="Leaderboard ranking" className="mt-4 flex gap-1 overflow-x-auto rounded-xl border border-white/8 bg-black/10 p-1">
+    <div role="tablist" aria-label="Leaderboard ranking" className="mt-4 grid grid-cols-2 gap-1 rounded-xl border border-white/8 bg-black/10 p-1 sm:flex sm:overflow-x-auto">
       {tabs.map((tab) => <button
         key={tab.id}
         type="button"
         role="tab"
         aria-selected={ranking === tab.id}
         onClick={() => setRanking(tab.id)}
-        className={`min-h-8 shrink-0 rounded-lg px-2.5 text-[11px] font-semibold transition ${ranking === tab.id ? "bg-violet-300/15 text-violet-200" : "text-stone-500 hover:bg-white/6 hover:text-white"}`}
+        className={`min-h-10 min-w-0 rounded-lg px-2.5 text-[11px] font-semibold transition sm:min-h-8 sm:shrink-0 ${ranking === tab.id ? "bg-violet-300/15 text-violet-200" : "text-stone-500 hover:bg-white/6 hover:text-white"}`}
       >{tab.label}</button>)}
     </div>
     <p className="mt-3 text-xs text-stone-500">{activeTab.description}</p>

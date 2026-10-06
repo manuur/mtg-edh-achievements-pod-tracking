@@ -34,9 +34,9 @@ export async function podMetrics(context: UserContext, podId: string, range: Met
     db.execute<{ player_id: string; display_name: string; games: number; wins: number; draws: number; win_rate: number; participation_share: number }>(sql`
       select p.id as player_id, p.display_name,
         count(*)::int as games,
-        count(*) filter (where g.winner_player_id = p.id)::int as wins,
+        count(*) filter (where gp.is_winner)::int as wins,
         count(*) filter (where g.result_kind = 'DRAW')::int as draws,
-        coalesce(count(*) filter (where g.winner_player_id = p.id)::numeric / nullif(count(*), 0), 0)::float as win_rate,
+        coalesce(count(*) filter (where gp.is_winner)::numeric / nullif(count(*), 0), 0)::float as win_rate,
         0::float as participation_share
       from app.game_participants gp
       join app.games g on g.id = gp.game_id and g.archived_at is null
@@ -58,8 +58,8 @@ export async function podMetrics(context: UserContext, podId: string, range: Met
     db.execute<{ deck_id: string; deck_name: string; owner_name: string; games: number; wins: number; win_rate: number }>(sql`
       select d.id as deck_id, d.name as deck_name, p.display_name as owner_name,
         count(*)::int as games,
-        count(*) filter (where g.winner_player_id = d.owner_player_id)::int as wins,
-        coalesce(count(*) filter (where g.winner_player_id = d.owner_player_id)::numeric / nullif(count(*), 0), 0)::float as win_rate
+        count(*) filter (where gp.is_winner)::int as wins,
+        coalesce(count(*) filter (where gp.is_winner)::numeric / nullif(count(*), 0), 0)::float as win_rate
       from app.game_participants gp
       join app.games g on g.id = gp.game_id and g.archived_at is null
       join app.decks d on d.id = gp.deck_id
@@ -88,7 +88,8 @@ export async function podMetrics(context: UserContext, podId: string, range: Met
       join app.game_participants b on b.game_id = a.game_id and b.player_id > a.player_id
       join app.games g on g.id = a.game_id and g.archived_at is null
       join app.players pa on pa.id = a.player_id join app.players pb on pb.id = b.player_id
-      where g.pod_id = ${podId}::uuid ${condition}
+      where g.pod_id = ${podId}::uuid
+        and private.game_players_are_opponents(g.id, a.player_id, b.player_id) ${condition}
       group by a.player_id, pa.display_name, b.player_id, pb.display_name
       order by games desc, pa.display_name, pb.display_name
     `),
@@ -128,9 +129,9 @@ export async function podLeaderboardMetrics(context: UserContext, podId: string,
     db.execute<Omit<PodLeaderboardEntry, "participation_share">>(sql`
       select p.id as player_id, p.display_name,
         count(*)::int as games,
-        count(*) filter (where g.winner_player_id = p.id)::int as wins,
+        count(*) filter (where gp.is_winner)::int as wins,
         count(*) filter (where g.result_kind = 'DRAW')::int as draws,
-        coalesce(count(*) filter (where g.winner_player_id = p.id)::numeric / nullif(count(*), 0), 0)::float as win_rate
+        coalesce(count(*) filter (where gp.is_winner)::numeric / nullif(count(*), 0), 0)::float as win_rate
       from app.game_participants gp
       join app.games g on g.id = gp.game_id and g.archived_at is null
       join app.players p on p.id = gp.player_id
@@ -178,21 +179,23 @@ export async function playerMetrics(context: UserContext, playerId: string, podI
       with eligible_games as (
         select g.* from app.games g where g.archived_at is null ${podFilter} ${condition}
       ), appearances as (
-        select g.* from eligible_games g join app.game_participants gp on gp.game_id = g.id
+        select g.*, gp.is_winner from eligible_games g join app.game_participants gp on gp.game_id = g.id
         where gp.player_id = ${playerId}::uuid
       )
       select count(*)::int as games,
-        count(*) filter (where winner_player_id = ${playerId}::uuid)::int as wins,
+        count(*) filter (where is_winner)::int as wins,
         count(*) filter (where result_kind = 'DRAW')::int as draws,
-        count(*) filter (where result_kind = 'WIN' and winner_player_id <> ${playerId}::uuid)::int as losses,
-        coalesce(count(*) filter (where winner_player_id = ${playerId}::uuid)::numeric / nullif(count(*), 0), 0)::float as win_rate,
+        count(*) filter (where result_kind = 'WIN' and not is_winner)::int as losses,
+        coalesce(count(*) filter (where is_winner)::numeric / nullif(count(*), 0), 0)::float as win_rate,
         coalesce(count(*)::numeric / nullif((select count(*) from eligible_games), 0), 0)::float as participation_share,
-        (select count(distinct gp2.player_id)::int from appearances a join app.game_participants gp2 on gp2.game_id = a.id where gp2.player_id <> ${playerId}::uuid) as unique_opponents,
+        (select count(distinct gp2.player_id)::int
+          from appearances a join app.game_participants gp2 on gp2.game_id = a.id
+          where private.game_players_are_opponents(a.id, ${playerId}::uuid, gp2.player_id)) as unique_opponents,
         (select count(*)::int from app.decks d where d.owner_player_id = ${playerId}::uuid and d.archived_at is null) as active_decks
       from appearances
     `),
     db.execute<{ result: string; played_at: string }>(sql`
-      select case when g.result_kind = 'DRAW' then 'D' when g.winner_player_id = ${playerId}::uuid then 'W' else 'L' end as result,
+      select case when g.result_kind = 'DRAW' then 'D' when gp.is_winner then 'W' else 'L' end as result,
         g.played_at::text as played_at
       from app.games g join app.game_participants gp on gp.game_id = g.id
       where gp.player_id = ${playerId}::uuid and g.archived_at is null ${podFilter} ${condition}
@@ -200,8 +203,8 @@ export async function playerMetrics(context: UserContext, playerId: string, podI
     `),
     db.execute<{ deck_id: string; deck_name: string; games: number; wins: number; win_rate: number }>(sql`
       select gp.deck_id, max(gp.deck_name_snapshot) as deck_name, count(*)::int as games,
-        count(*) filter (where g.winner_player_id = ${playerId}::uuid)::int as wins,
-        coalesce(count(*) filter (where g.winner_player_id = ${playerId}::uuid)::numeric / nullif(count(*), 0), 0)::float as win_rate
+        count(*) filter (where gp.is_winner)::int as wins,
+        coalesce(count(*) filter (where gp.is_winner)::numeric / nullif(count(*), 0), 0)::float as win_rate
       from app.game_participants gp join app.games g on g.id = gp.game_id
       where gp.player_id = ${playerId}::uuid and g.archived_at is null ${podFilter} ${condition}
       group by gp.deck_id order by games desc, wins desc
@@ -256,10 +259,10 @@ export async function ownedDeckSummaries(context: UserContext) {
   const result = await getDb(context).execute<OwnedDeckSummary & Record<string, unknown>>(sql`
     select deck.id as deck_id,
       count(game.id)::int as games,
-      count(game.id) filter (where game.winner_player_id = deck.owner_player_id)::int as wins,
+      count(game.id) filter (where participant.is_winner)::int as wins,
       count(game.id) filter (where game.result_kind = 'DRAW')::int as draws,
-      count(game.id) filter (where game.result_kind = 'WIN' and game.winner_player_id <> deck.owner_player_id)::int as losses,
-      coalesce(count(game.id) filter (where game.winner_player_id = deck.owner_player_id)::numeric
+      count(game.id) filter (where game.result_kind = 'WIN' and not participant.is_winner)::int as losses,
+      coalesce(count(game.id) filter (where participant.is_winner)::numeric
         / nullif(count(game.id), 0), 0)::float as win_rate,
       max(game.played_at)::text as last_played,
       (array_agg(pod.timezone order by game.played_at desc) filter (where game.id is not null))[1] as last_played_timezone
@@ -281,17 +284,17 @@ export async function deckMetrics(context: UserContext, deckId: string, podId?: 
     db.execute<{ owner_player_id: string; games: number; wins: number; draws: number; losses: number; win_rate: number; last_played: string | null }>(sql`
       select d.owner_player_id,
         count(g.id)::int as games,
-        count(g.id) filter (where g.winner_player_id = d.owner_player_id)::int as wins,
+        count(g.id) filter (where gp.is_winner)::int as wins,
         count(g.id) filter (where g.result_kind = 'DRAW')::int as draws,
-        count(g.id) filter (where g.result_kind = 'WIN' and g.winner_player_id <> d.owner_player_id)::int as losses,
-        coalesce(count(g.id) filter (where g.winner_player_id = d.owner_player_id)::numeric / nullif(count(g.id), 0), 0)::float as win_rate,
+        count(g.id) filter (where g.result_kind = 'WIN' and not gp.is_winner)::int as losses,
+        coalesce(count(g.id) filter (where gp.is_winner)::numeric / nullif(count(g.id), 0), 0)::float as win_rate,
         max(g.played_at)::text as last_played
       from app.decks d left join app.game_participants gp on gp.deck_id = d.id
       left join app.games g on g.id = gp.game_id and g.archived_at is null ${condition} ${podFilter}
       where d.id = ${deckId}::uuid group by d.owner_player_id
     `),
     db.execute<{ result: string; played_at: string }>(sql`
-      select case when g.result_kind = 'DRAW' then 'D' when g.winner_player_id = d.owner_player_id then 'W' else 'L' end as result,
+      select case when g.result_kind = 'DRAW' then 'D' when gp.is_winner then 'W' else 'L' end as result,
         g.played_at::text as played_at
       from app.decks d join app.game_participants gp on gp.deck_id = d.id join app.games g on g.id = gp.game_id
       where d.id = ${deckId}::uuid and g.archived_at is null ${podFilter} ${condition}
